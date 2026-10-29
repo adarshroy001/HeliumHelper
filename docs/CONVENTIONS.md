@@ -8,14 +8,14 @@ If the code and this document disagree, fix one of them in the same PR. Never le
 
 ## How we work
 
-1. **One task at a time.** Tasks come from [PLAN.md](PLAN.md). Each is small enough to review in one sitting.
+1. **Small tasks, reviewed in batches.** Tasks come from [PLAN.md](PLAN.md); each stays small. Two to four related tasks go into one branch and one PR.
 2. **Before coding,** re-read the task block. If the scope is unclear or wrong, fix the plan first.
-3. **One branch per task:** `task/<id>-<short-name>`, for example `task/f6-config`, branched from `main`.
+3. **One branch per batch:** `task/<first-id>-<last-id>-<short-name>`, for example `task/f11-f13-auth-mongo`, branched from `main` (or from the previous batch while it awaits merge). Each task still gets its own commits.
 4. **Build** with tests alongside the code, not after it.
 5. **Update docs in the same PR:** this file, `CLAUDE.md`, an ADR, a module README or a skill, whichever the change affects.
 6. **Self-review** against the Definition of Done below.
 7. **Push the branch and open a PR** to `main` using the template. CI runs on the PR and again on every push to it.
-8. **Stop at review.** The next task starts only after this one is approved and merged.
+8. **Stop at review.** The next batch starts only after this one is approved.
 9. **Commits:** small, logical commits with Conventional Commit messages, for example `feat(config): validate env at startup`. No attribution trailers. The coding agent may commit and push task branches. Merging to `main` happens through a reviewed PR.
 
 ### Definition of Done
@@ -221,3 +221,4 @@ Every error response has one shape ([ADR-0008](adr/0008-error-contract.md)):
 | 2026-10-29 | New Errors section; R6 enforced by lint (F8) |
 | 2026-10-29 | New Validation and API docs section; R5 enforced by the pipe and lint (F9) |
 | 2026-10-29 | New HTTP section; smoke tests added to R14 (F10) |
+| 2026-10-29 | Tasks are reviewed in batches of two to four, one branch and PR per batch |

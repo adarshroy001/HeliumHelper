@@ -12,11 +12,11 @@ Guide for AI coding agents working in this repo. Keep it short. Link to docs ins
 
 ## Before you do anything
 
-1. Find the task in [docs/PLAN.md](docs/PLAN.md). Work on **one task only**, within its scope.
+1. Find the tasks in [docs/PLAN.md](docs/PLAN.md). Work on a batch of **two to four tasks**, each within its own scope.
 2. Follow [docs/CONVENTIONS.md](docs/CONVENTIONS.md): the workflow, the Definition of Done and rules R1–R17.
 3. A change that contradicts an ADR in [docs/adr/](docs/adr/README.md) needs a new ADR first.
-4. When the task is done, stop and ask for review. Don't start the next task.
-5. Commit in small Conventional Commits on the task branch (`task/<id>-<name>`) and push it. Never add a `Co-Authored-By` or other attribution trailer. Never push to `main` directly; it changes only through a reviewed PR.
+4. When the batch is done, stop and ask for review. Don't start the next batch.
+5. Commit in small Conventional Commits on the batch branch (`task/<first-id>-<last-id>-<name>`) and push it. Never add a `Co-Authored-By` or other attribution trailer. Never push to `main` directly; it changes only through a reviewed PR.
 
 ## Structure
 
