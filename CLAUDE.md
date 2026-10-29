@@ -65,6 +65,8 @@ Migrations (F13) are added by that task. Git hooks run lint-staged on commit and
 
 **Database:** models register on `DB.main` (read-only) or `DB.messaging`; only repositories use them. Lists use `findPage()`, atomic multi-document writes use `withTransaction()`. Integration tests get a fresh database from `connectTestDatabase()`. See CONVENTIONS → Database.
 
+**Audit:** state-changing admin actions call `AuditService.record(..., session)` inside the change's transaction. See CONVENTIONS → Audit log.
+
 **Queues:** declare message types with `defineMessage()` in the owning module; publish with `QueuePublisher`; consume with a `@Consumer()` class returning `ack()`/`retry()`/`park()`/`hold()`, imported into `WorkerModule`. Crons are `defineSchedule()` entries in `src/schedules.ts`. See CONVENTIONS → Queues.
 
 **Retries and limits:** mutating routes callers may retry get `@Idempotent()` (from `src/infrastructure/idempotency`). Limits are per caller per audience; change one with `@Throttle({ internal: { limit, ttl } })`. See CONVENTIONS → Rate limits and idempotency.

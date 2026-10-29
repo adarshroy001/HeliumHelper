@@ -251,6 +251,13 @@ Every error response has one shape ([ADR-0008](adr/0008-error-contract.md)):
     - A scheduled message's envelope gets EventBridge's execution ID as `id` and `correlationId`, and the scheduled time as `ts`.
 - **Locally:** ElasticMQ in docker-compose; queues are declared in `docker/elasticmq.conf`, each with its `-dlq`. Tests create their own queues with `createTestQueue()` (`test/helpers/sqs.ts`).
 
+## Audit log
+
+- **Every state-changing admin action is recorded** in `audit_log` by `AuditService.record({ actor, action, entity, before?, after? }, session)`, from the `audit` module. Services call it explicitly.
+- **It is part of the change, not best-effort:** record inside the same `withTransaction()` as the change and pass `session`, so a failed audit write rolls the action back.
+- `action` is `{entity}.{verb}` (`campaign.start`); only fields that differ between `before` and `after` are stored, as `{ from, to }`; the actor, `requestId` and time are filled in. Never pass secrets or message bodies.
+- See `src/modules/audit/README.md` for indexes and retention.
+
 ## HTTP
 
 - **Route prefixes by audience** ([ADR-0010](adr/0010-auth-and-access.md)). Module controllers use `@InternalController('campaigns')` from `src/common/http/`, which serves `/internal/v1/campaigns`. Plain `@Controller` is banned in `src/modules` by lint. `/admin/v1` and `/store/v1` are reserved; their decorators are added when those audiences arrive.
@@ -340,3 +347,4 @@ Every error response has one shape ([ADR-0008](adr/0008-error-contract.md)):
 | 2026-10-29 | New Redis section (F14) |
 | 2026-10-29 | New Rate limits and idempotency section; R10 enforced by `@Idempotent()` (F15) |
 | 2026-10-29 | New Queues section (F16); consumers and the worker process added (F17); scheduled jobs added (F18) |
+| 2026-10-29 | New Audit log section (F19) |
