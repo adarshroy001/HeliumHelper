@@ -9,6 +9,8 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     restoreMocks: true,
+    // A minimal valid environment. Tests never read .env files (src/config/config.module.ts).
+    env: { NODE_ENV: 'test', APP_ENV: 'local' },
     coverage: {
       provider: 'v8',
       include: ['src/**/*.ts'],

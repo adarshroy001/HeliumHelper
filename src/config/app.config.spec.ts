@@ -1,0 +1,76 @@
+import { describe, expect, it } from 'vitest';
+import { parseAppConfig } from './app.config.js';
+import { ConfigValidationError } from './config.loader.js';
+
+const base = { NODE_ENV: 'development', APP_ENV: 'local' } as const;
+
+function problemsOf(env: Record<string, string | undefined>): readonly string[] {
+  try {
+    parseAppConfig(env);
+  } catch (err) {
+    if (err instanceof ConfigValidationError) return err.problems;
+    throw err;
+  }
+  throw new Error('expected a ConfigValidationError');
+}
+
+describe('parseAppConfig', () => {
+  it('applies defaults for optional variables', () => {
+    expect(parseAppConfig(base)).toEqual({
+      nodeEnv: 'development',
+      appEnv: 'local',
+      port: 3000,
+      logLevel: 'info',
+      name: 'helium-backend',
+      isProduction: false,
+    });
+  });
+
+  it('coerces PORT from a string', () => {
+    expect(parseAppConfig({ ...base, PORT: '8080' }).port).toBe(8080);
+  });
+
+  it('accepts a valid production setup', () => {
+    const config = parseAppConfig({ NODE_ENV: 'production', APP_ENV: 'production', LOG_LEVEL: 'warn' });
+    expect(config.isProduction).toBe(true);
+  });
+
+  it('reports every missing required variable at once', () => {
+    expect(problemsOf({})).toEqual(['NODE_ENV: is required but not set', 'APP_ENV: is required but not set']);
+  });
+
+  it.each([
+    ['PORT', '70000'],
+    ['PORT', 'abc'],
+    ['LOG_LEVEL', 'verbose'],
+    ['APP_ENV', 'prod'],
+    ['APP_NAME', ''],
+  ])('rejects %s=%s', (key, value) => {
+    const problems = problemsOf({ ...base, [key]: value });
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toMatch(new RegExp(`^${key}:`));
+  });
+
+  it('requires NODE_ENV=production outside local', () => {
+    expect(problemsOf({ NODE_ENV: 'development', APP_ENV: 'staging' })).toEqual([
+      'NODE_ENV: must be "production" when APP_ENV is "staging"',
+    ]);
+  });
+
+  it('refuses debug logging in production', () => {
+    expect(problemsOf({ NODE_ENV: 'production', APP_ENV: 'production', LOG_LEVEL: 'debug' })).toEqual([
+      'LOG_LEVEL: must be "info" or quieter in production',
+    ]);
+  });
+
+  it('allows debug logging in staging', () => {
+    const config = parseAppConfig({ NODE_ENV: 'production', APP_ENV: 'staging', LOG_LEVEL: 'debug' });
+    expect(config.logLevel).toBe('debug');
+  });
+
+  it('names the area and lists problems in the error message', () => {
+    expect(() => parseAppConfig({ ...base, PORT: '0' })).toThrow(
+      /^Invalid configuration \(app\):\n {2}- PORT: /,
+    );
+  });
+});
