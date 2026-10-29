@@ -29,7 +29,7 @@ export class ConflictError extends AppError {
   readonly status = HttpStatus.CONFLICT;
 }
 
-/** 400 `VALIDATION_FAILED`. `fields` maps each input path to a message: `{ 'body.name': 'Required' }`. */
+/** 400 `VALIDATION_FAILED`. `fields` maps each input path to a message: `{ 'items.0.phone': 'Required' }`. */
 export class ValidationError extends AppError {
   readonly status = HttpStatus.BAD_REQUEST;
 

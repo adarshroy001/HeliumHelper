@@ -60,6 +60,7 @@ It was tested with Vitest and supertest against a real MongoDB 7 container, then
     - `z.strictObject` rejects unknown keys. `z.coerce` handles query numbers.
     - No third-party wrapper (`nestjs-zod`) is needed.
 - **OpenAPI:** `SwaggerModule.createDocument(…, { standardSchemaConverter })`, using `z.toJSONSchema(schema, { io, target: 'openapi-3.0' })`. Limits, defaults and `additionalProperties: false` all appear in the generated document.
+    - *Update (F9):* no converter is needed. zod 4.6 implements Standard JSON Schema (`~standard.jsonSchema`), which `@nestjs/swagger` 12 reads directly with `target: 'openapi-3.0'`.
 - **Install-script security:**
     - pnpm 12 blocks dependency install scripts unless they are allowed.
     - `pnpm-workspace.yaml` keeps an explicit `allowBuilds` map.

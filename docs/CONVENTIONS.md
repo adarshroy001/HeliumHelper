@@ -139,6 +139,26 @@ Every error response has one shape ([ADR-0008](adr/0008-error-contract.md)):
 - **Logging:** a 5xx is logged once, at error level, as the request's access log line with the error and its stack attached. A 4xx is only the warn-level access line.
 - **Startup failures and crashes:** a failed start, an uncaught exception or an unhandled rejection is logged as one `fatal` JSON line, then the process exits with code 1 so the platform restarts it.
 
+## Validation and API docs
+
+- **Every route input has a zod schema**, attached to the parameter. The global `SchemaValidationPipe` validates it and the handler receives the parsed value:
+    ```ts
+    const campaignId = z.string().regex(/^[a-f\d]{24}$/, 'Must be a campaign ID.');
+    const createCampaign = z.strictObject({ name: z.string().min(1).max(100), templateId: z.string() });
+
+    @Post()
+    create(@Body({ schema: createCampaign }) body: z.infer<typeof createCampaign>) { ... }
+
+    @Get(':id')
+    get(@Param('id', { schema: campaignId }) id: string) { ... }
+    ```
+    - Types come from the schema with `z.infer`. Never write a separate interface for the same input.
+    - Schemas live next to the controller in `<module>.schemas.ts`.
+- **Objects choose how to treat unknown keys.** `z.strictObject` rejects them; use it for everything we define. `z.looseObject` keeps them; use it only for third-party payloads that grow new fields, such as Meta webhooks. `z.object`, which silently drops them, is banned in `src/modules` by lint.
+- **Query values are text.** Use the helpers in `src/common/validation/query.ts`: `queryInt(rules)`, `queryBoolean()`, `queryCursor()`, and `paginationQuery` (`limit` 1–100, default 20, plus `cursor`), extended with a list's own filters. Don't use `z.coerce`: it reads `''` as `0` and `'false'` as `true`.
+- **Invalid input** is 400 `VALIDATION_FAILED` with `details.fields` keyed by the field's path: `name`, `items.0.phone`. An unknown key gets `Unknown field.`; a problem with the whole value is under `(root)`.
+- **API docs** are generated from the same schemas, with no extra decorators, and served at `/docs` (UI) and `/docs-json` in every environment except production.
+
 ## Rules
 
 | # | Rule | Enforced by |
@@ -147,7 +167,7 @@ Every error response has one shape ([ADR-0008](adr/0008-error-contract.md)):
 | R2 | **Module boundaries:** another module is used only through its `index.ts`. Cross-module side effects go through events or queues. `forwardRef` is banned | Lint `helium/module-boundaries`, `no-restricted-imports` |
 | R3 | **File size:** 400 lines or fewer per file, not counting blank lines and comments. A growing service is split by use case | Lint `max-lines` |
 | R4 | **Types:** strict TypeScript. No `any`, no non-null `!`, no unawaited promises, `===` only. An exception needs an `eslint-disable-next-line` with a reason; unused disables fail lint | tsconfig + typescript-eslint `strictTypeChecked` |
-| R5 | **Validation:** every input is validated with zod: body, query, params, env, queue messages, webhook payloads. Unknown keys are rejected | Validation pipe (*planned, F9*), review |
+| R5 | **Validation:** every input is validated with zod: body, query, params, env, queue messages, webhook payloads. Unknown keys are rejected (`z.strictObject`), except in third-party payloads (`z.looseObject`). See [Validation and API docs](#validation-and-api-docs) | Global validation pipe (tested); lint bans `z.object` in `src/modules`; review |
 | R6 | **Errors:** throw an `AppError` subclass from the module's `*.errors.ts`. Never throw `HttpException` or a bare `Error` from services. Error codes are `SCREAMING_SNAKE_CASE`, unique, and never reused. See [Errors](#errors) | Lint in `src/modules` (no `*Exception` imports from `@nestjs/common`, no `throw new Error`); review for codes |
 | R7 | **Access:** every route declares `@Public()` or `@RequirePermissions(...)`. Routes are denied by default | Global guards + route-coverage test (*planned, F11*) |
 | R8 | **Data access:** queries are scoped and indexed. Lists use cursor pagination, never `skip`. Hot paths use `bulkWrite` and `lean()`. Transactions only when a use case needs them, kept short | Review; slow-query log |
@@ -187,3 +207,4 @@ Every error response has one shape ([ADR-0008](adr/0008-error-contract.md)):
 | 2026-10-29 | New Configuration section; R12 enforced by lint (F6) |
 | 2026-10-29 | New Logging and request context section; R13 detailed (F7) |
 | 2026-10-29 | New Errors section; R6 enforced by lint (F8) |
+| 2026-10-29 | New Validation and API docs section; R5 enforced by the pipe and lint (F9) |
