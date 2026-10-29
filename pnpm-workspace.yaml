@@ -7,4 +7,6 @@ engineStrict: true
 savePrefix: ''
 
 # Dependency install scripts run only when listed true here. Deny anything we don't need (ADR-0014).
-allowBuilds: {}
+allowBuilds:
+  # swagger-ui telemetry (via @nestjs/swagger). Not needed.
+  '@scarf/scarf': false
