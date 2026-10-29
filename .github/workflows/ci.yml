@@ -42,9 +42,22 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Commit messages
-        # Git hooks can be skipped locally; this cannot. Skipped for a new branch's first push and for fork PRs.
-        if: github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000'
-        run: pnpm exec commitlint --from "${{ github.event.before }}" --to "${{ github.sha }}" --verbose
+        # Git hooks can be skipped locally; this cannot. A new branch has no "before" commit, so check it from
+        # where it left main.
+        if: github.event_name == 'push'
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            FROM=$(git merge-base origin/main HEAD 2>/dev/null || true)
+          else
+            FROM="$BEFORE"
+          fi
+          if [ -n "$FROM" ] && [ "$FROM" != "$(git rev-parse HEAD)" ]; then
+            pnpm exec commitlint --from "$FROM" --to HEAD --verbose
+          else
+            echo "No new commits to check."
+          fi
 
       - name: Format
         run: pnpm format:check
