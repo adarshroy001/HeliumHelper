@@ -1,6 +1,6 @@
 # Engineering conventions
 
-Last updated: 2026-10-28
+Last updated: 2026-10-29
 
 These are the rules for writing code in `helium-backend`. Where a rule can be checked by a tool, it is, and the "Enforced by" column says how. A rule marked *planned* becomes enforced in the task named.
 
@@ -10,22 +10,38 @@ If the code and this document disagree, fix one of them in the same PR. Never le
 
 1. **One task at a time.** Tasks come from [PLAN.md](PLAN.md). Each is small enough to review in one sitting.
 2. **Before coding,** re-read the task block. If the scope is unclear or wrong, fix the plan first.
-3. **One branch per task:** `task/<id>-<short-name>`, for example `task/f6-config`.
+3. **One branch per task:** `task/<id>-<short-name>`, for example `task/f6-config`, branched from `main`.
 4. **Build** with tests alongside the code, not after it.
 5. **Update docs in the same PR:** this file, `CLAUDE.md`, an ADR, a module README or a skill, whichever the change affects.
 6. **Self-review** against the Definition of Done below.
-7. **Open a PR** using the template.
+7. **Push the branch.** CI runs on every push. Open a PR to `main` using the template.
 8. **Stop at review.** The next task starts only after this one is approved and merged.
-9. **Commits:** people commit, not the coding agent. Messages follow Conventional Commits, for example `feat(config): validate env at startup`.
+9. **Commits:** small, logical commits with Conventional Commit messages, for example `feat(config): validate env at startup`. No attribution trailers. The coding agent may commit and push task branches. Merging to `main` happens through a reviewed PR.
 
 ### Definition of Done
 
 - [ ] The task's "Done when" criteria are met.
-- [ ] `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm test:int`, `pnpm test:e2e` and `pnpm build` pass locally and in CI.
+- [ ] `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm test:int`, `pnpm test:e2e` and `pnpm build` pass locally, and the CI check `check` is green.
 - [ ] New behaviour has tests, including the failure paths.
 - [ ] No `any`, no unawaited promises, no `console.log`, no secrets in code or logs.
 - [ ] Docs, ADRs and skills affected by the change are updated.
 - [ ] `PLAN.md` status is updated.
+
+### Repository and CI
+
+- **Repository:** [github.com/adarshroy001/HeliumHelper](https://github.com/adarshroy001/HeliumHelper). The default branch is `main`.
+- **CI** (`.github/workflows/ci.yml`) runs on every push to any branch, and on pull requests from forks. It runs these steps in order:
+    1. install from the lockfile;
+    2. commit message check (on pushes);
+    3. format, lint, typecheck;
+    4. unit, integration and HTTP tests;
+    5. build.
+- **Dependabot** opens weekly update PRs for npm packages and GitHub Actions. It doesn't propose TypeScript 7 or `@types/node` majors (ADR-0014).
+- **Branch protection for `main`,** set by a repo admin under GitHub → Settings → Branches (or Rulesets):
+    1. Require a pull request before merging, with 1 approval, and dismiss stale approvals when new commits are pushed.
+    2. Require status checks to pass: `check`. Require the branch to be up to date before merging.
+    3. Require conversation resolution before merging.
+    4. Block force pushes and deletions.
 
 ## Project structure
 
@@ -87,3 +103,4 @@ See [ADR-0004](adr/0004-project-structure.md) for the full tree.
 | 2026-10-28 | R15 now requires exact versions and an allowlist for install scripts; new R16 on ESM imports (F2) |
 | 2026-10-28 | R1–R4 and R16 enforced by lint, with folder import rules spelled out in R1; new R17 on style and commits (F3) |
 | 2026-10-28 | R14 gives test file locations and `createTestApp()`; `app.setup.ts` added to the structure table (F4) |
+| 2026-10-29 | CI, Dependabot and branch protection documented; the agent may commit and push task branches (F5) |

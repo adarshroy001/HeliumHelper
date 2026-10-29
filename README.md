@@ -22,6 +22,8 @@ curl http://localhost:3000/health/live
 
 Docker, local services and seed data are added in later tasks (F12, F14, F16, F20).
 
+[![CI](https://github.com/adarshroy001/HeliumHelper/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/adarshroy001/HeliumHelper/actions/workflows/ci.yml)
+
 ## Documentation
 
 | Doc | What it's for |
