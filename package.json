@@ -13,6 +13,7 @@
     "build": "nest build",
     "dev": "nest start --watch",
     "start": "node --enable-source-maps dist/main.js",
+    "start:worker": "node --enable-source-maps dist/worker.js",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint . --fix --max-warnings=0",

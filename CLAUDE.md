@@ -37,7 +37,7 @@ Run pnpm through Corepack (`corepack pnpm …`), or `corepack enable` once and t
 | `docker compose up -d` | Start local MongoDB (a replica set), Valkey and ElasticMQ for `pnpm dev` |
 | `pnpm dev` | Run the API in watch mode |
 | `pnpm build` | Compile to `dist/` with `tsc` |
-| `pnpm start` | Run the compiled API (`dist/main.js`) |
+| `pnpm start` / `pnpm start:worker` | Run the compiled API (`dist/main.js`) or worker (`dist/worker.js`) |
 | `pnpm typecheck` | Type-check without emitting |
 | `pnpm lint` / `pnpm lint:fix` | ESLint (every rule is an error) |
 | `pnpm format` / `pnpm format:check` | Prettier |
@@ -64,7 +64,7 @@ Migrations (F13) are added by that task. Git hooks run lint-staged on commit and
 
 **Database:** models register on `DB.main` (read-only) or `DB.messaging`; only repositories use them. Lists use `findPage()`, atomic multi-document writes use `withTransaction()`. Integration tests get a fresh database from `connectTestDatabase()`. See CONVENTIONS → Database.
 
-**Queues:** declare message types with `defineMessage()` in the owning module; publish with `QueuePublisher`. See CONVENTIONS → Queues.
+**Queues:** declare message types with `defineMessage()` in the owning module; publish with `QueuePublisher`; consume with a `@Consumer()` class returning `ack()`/`retry()`/`park()`/`hold()`, imported into `WorkerModule`. See CONVENTIONS → Queues.
 
 **Retries and limits:** mutating routes callers may retry get `@Idempotent()` (from `src/infrastructure/idempotency`). Limits are per caller per audience; change one with `@Throttle({ internal: { limit, ttl } })`. See CONVENTIONS → Rate limits and idempotency.
 

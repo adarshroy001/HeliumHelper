@@ -52,7 +52,7 @@ See [ADR-0004](adr/0004-project-structure.md) for the full tree.
 
 | Folder | What goes here | What never goes here |
 | --- | --- | --- |
-| `src/` root files | `main.ts` (API start), `app.module.ts` (what the API loads), `app.setup.ts` (global setup shared with HTTP tests) | Business logic; global setup only in `main.ts` |
+| `src/` root files | `main.ts` (API start), `app.module.ts` (what the API loads), `app.setup.ts` (global setup shared with HTTP tests), `worker.ts` and `worker.module.ts` (the worker process), `migrate.ts` (the migration command) | Business logic; global setup only in `main.ts` |
 | `src/config/` | One zod-validated config file per area | Defaults that are only safe in development, unless checked against the environment |
 | `src/common/` | Code features use directly: errors, auth guards and decorators, validation, small pure utils | Business rules; connections to external systems |
 | `src/infrastructure/` | Connections to the outside world: database, Redis, queues, logger, health, HTTP error responses | Business rules |
@@ -233,7 +233,17 @@ Every error response has one shape ([ADR-0008](adr/0008-error-contract.md)):
     - `correlationId` is the request ID (or, in a consumer, the incoming message's), so logs follow work across processes.
     - Batches go ten per request. Entries SQS fails on its side are retried three times; any message still unsent, or rejected as our fault, throws `QueuePublishError`.
     - FIFO queues (`.fifo`) need `groupId` and get the envelope `id` as deduplication id. On standard queues `groupId` makes them fair queues (per tenant), when `SQS_FAIR_QUEUES` is on.
-- **Locally:** ElasticMQ in docker-compose; queues are declared in `docker/elasticmq.conf`. Tests create their own queues with `createTestQueue()` (`test/helpers/sqs.ts`).
+- **Consuming:** a class marked `@Consumer({ queue, message, concurrency?, batchSize?, visibilitySeconds? })` implements `MessageHandler<T>`; it is a provider of its module. `handle(data, { envelope, receiveCount })` returns an outcome:
+    - `ack()`: done, the message is deleted;
+    - `retry(delaySeconds?)`: try again later (default backoff 5 s, 10 s, 20 s ... 15 min); after the queue's maximum receives SQS moves it to the DLQ;
+    - `park(reason)`: it will never succeed; moved to `<queue>-dlq` now, with the reason;
+    - `hold(delaySeconds)`: not now (a rate limit, a paused campaign); sent back later without counting as a failure.
+    - A thrown error is a `retry`, or a `park` for an `AppError` with `retryable: false`. A message that isn't a valid envelope of the consumer's type is parked without reaching the handler.
+    - Optional `gate()`: return `false` to stop receiving for a while (for example when Redis is down); SQS keeps the work.
+    - Handlers are idempotent by a natural key (R10): SQS may deliver a message more than once.
+    - Each message runs in its own context: `ClsService.getId()` is its `correlationId`, and every log line carries `correlationId`, `messageId` and `queue`.
+- **The worker process** (`src/worker.ts`, `pnpm start:worker`) runs the consumers named in `WORKER_QUEUES` (comma-separated, or `*`), and serves only `/health/*` on `WORKER_HEALTH_PORT`. A name without a consumer fails the start. On SIGTERM it stops receiving, finishes in-flight messages (up to 25 seconds) and exits; anything unfinished comes back after its visibility timeout. Business modules with consumers are imported into `WorkerModule`.
+- **Locally:** ElasticMQ in docker-compose; queues are declared in `docker/elasticmq.conf`, each with its `-dlq`. Tests create their own queues with `createTestQueue()` (`test/helpers/sqs.ts`).
 
 ## HTTP
 
@@ -323,4 +333,4 @@ Every error response has one shape ([ADR-0008](adr/0008-error-contract.md)):
 | 2026-10-29 | New Migrations section; migrations live in `src/migrations/` (F13) |
 | 2026-10-29 | New Redis section (F14) |
 | 2026-10-29 | New Rate limits and idempotency section; R10 enforced by `@Idempotent()` (F15) |
-| 2026-10-29 | New Queues section (F16) |
+| 2026-10-29 | New Queues section (F16); consumers and the worker process added (F17) |

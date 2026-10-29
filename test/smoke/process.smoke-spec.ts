@@ -11,6 +11,7 @@ import { mongoUri } from '../global-setup.js';
  */
 const MAIN = resolve('dist/main.js');
 const MIGRATE = resolve('dist/migrate.js');
+const WORKER = resolve('dist/worker.js');
 
 type LogLine = Record<string, unknown> & { level?: string; msg?: string };
 
@@ -116,5 +117,29 @@ describe('the built migration command', () => {
   it('reports status, and fails on an unknown command', async () => {
     expect(await migrate('status')).toMatchObject({ code: 0 });
     expect(await migrate('sideways')).toMatchObject({ code: 1, messages: ['migration command failed'] });
+  });
+});
+
+describe('the built worker as a process', () => {
+  // Windows has no SIGTERM (see above). CI runs Linux.
+  it.skipIf(process.platform === 'win32')('serves health, then shuts down cleanly on SIGTERM', async () => {
+    const port = await freePort();
+    const worker = start({ WORKER_HEALTH_PORT: String(port), WORKER_QUEUES: '' }, [WORKER]);
+    await vi.waitFor(
+      () => {
+        if (!worker.lines.some((l) => l.msg?.includes('worker health on port')))
+          throw new Error('not up yet');
+      },
+      { timeout: 10_000 },
+    );
+    expect((await fetch(`http://127.0.0.1:${String(port)}/health/ready`)).status).toBe(200);
+
+    worker.child.kill('SIGTERM');
+    const { code, signal } = await worker.exit;
+
+    expect(signal === 'SIGTERM' || code === 0).toBe(true);
+    const messages = worker.lines.map((l) => l.msg);
+    expect(messages).toContain('consumers stopped');
+    expect(messages.at(-1)).toBe('shutdown complete');
   });
 });

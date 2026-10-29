@@ -32,14 +32,20 @@ export interface TestQueue {
 }
 
 /**
- * Creates a queue with a unique name, optionally with a DLQ after `maxReceiveCount` receives.
+ * Creates a queue (a unique name unless `name` is given), optionally with a DLQ after `maxReceiveCount` receives.
  * `fifo` creates a `.fifo` queue.
  */
 export async function createTestQueue(
   sqs: SQSClient,
-  options: { fifo?: boolean; visibilitySeconds?: number; dlq?: TestQueue; maxReceiveCount?: number } = {},
+  options: {
+    name?: string;
+    fifo?: boolean;
+    visibilitySeconds?: number;
+    dlq?: TestQueue;
+    maxReceiveCount?: number;
+  } = {},
 ): Promise<TestQueue> {
-  const name = `test-${randomUUID().slice(0, 8)}${options.fifo === true ? '.fifo' : ''}`;
+  const name = options.name ?? `test-${randomUUID().slice(0, 8)}${options.fifo === true ? '.fifo' : ''}`;
   const attributes: Record<string, string> = {
     VisibilityTimeout: String(options.visibilitySeconds ?? 30),
     ...(options.fifo === true ? { FifoQueue: 'true' } : {}),
