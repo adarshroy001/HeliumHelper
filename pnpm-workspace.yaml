@@ -10,3 +10,8 @@ savePrefix: ''
 allowBuilds:
   # swagger-ui telemetry (via @nestjs/swagger). Not needed.
   '@scarf/scarf': false
+  # testcontainers' optional SSH support (native build). Not needed: Docker runs locally or in CI.
+  cpu-features: false
+  ssh2: false
+  # Optional postinstall of a transitive gRPC dependency. Not needed.
+  protobufjs: false

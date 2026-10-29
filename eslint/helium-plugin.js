@@ -25,6 +25,8 @@ const ALLOWED = {
   infrastructure: ['config', 'common', 'infrastructure'],
   modules: ['config', 'common', 'infrastructure', 'modules'],
   lambdas: ['common', 'lambdas'],
+  // Migrations use only the runner's types: they must not depend on models that change later.
+  migrations: ['infrastructure'],
   root: ['config', 'common', 'infrastructure', 'modules', 'lambdas', 'root'],
 };
 

@@ -1,0 +1,28 @@
+# Local dependencies for `pnpm dev`. Start with `docker compose up -d`; the URIs in .env.example point here.
+# Tests don't use this file: they start their own containers (test/global-setup.ts).
+name: helium-backend
+
+services:
+  mongo:
+    image: mongo:7.0
+    # A single-node replica set: transactions need one.
+    command: ['--replSet', 'rs0', '--bind_ip_all']
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      # Initiates the replica set on first start, then reports healthy once it has a primary.
+      test:
+        - CMD
+        - mongosh
+        - --quiet
+        - --eval
+        - "try { rs.status().ok } catch (e) { rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'localhost:27017' }] }).ok }"
+      interval: 5s
+      timeout: 10s
+      retries: 20
+      start_period: 5s
+
+volumes:
+  mongo-data:

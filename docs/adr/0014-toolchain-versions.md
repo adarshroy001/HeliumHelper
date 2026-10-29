@@ -82,5 +82,5 @@ It was tested with Vitest and supertest against a real MongoDB 7 container, then
         - The default access log includes every request header. Trim it to method, url, status and duration.
     - **F8:** the built-in pipe's error body is Nest's default (`message: string[]`). F8 supplies an `exceptionFactory` that maps issues to `VALIDATION_FAILED` with `details.fields`. The issue paths are available.
     - **F10:** remove the `X-Powered-By` header (helmet does this).
-    - **F12:** testcontainers' MongoDB URI needs `directConnection=true`.
+    - **F12:** testcontainers' MongoDB URI needs `directConnection=true`. *Done:* `test/global-setup.ts` adds it.
     - **F14 and F16:** `ioredis` 6.0.0 and `@aws-sdk/client-sqs` are not covered by this spike. Those tasks confirm them.

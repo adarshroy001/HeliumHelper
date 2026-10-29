@@ -20,8 +20,8 @@ If the code and this document disagree, fix one of them in the same PR. Never le
 
 ### Definition of Done
 
-- [ ] The task's "Done when" criteria are met.
-- [ ] `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm test:int`, `pnpm test:e2e` and `pnpm build` pass locally, and the CI check `check` is green.
+- [ ] Each task's "Done when" criteria are met.
+- [ ] `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm test:int`, `pnpm test:e2e`, `pnpm build` and `pnpm test:smoke` pass locally, and the CI check `check` is green.
 - [ ] New behaviour has tests, including the failure paths.
 - [ ] No `any`, no unawaited promises, no `console.log`, no secrets in code or logs.
 - [ ] Docs, ADRs and skills affected by the change are updated.
@@ -35,7 +35,8 @@ If the code and this document disagree, fix one of them in the same PR. Never le
     2. commit message check (the pull request's commits, or the commits pushed to `main`);
     3. format, lint, typecheck;
     4. unit, integration and HTTP tests;
-    5. build.
+    5. build;
+    6. smoke tests of the built app.
 - **Dependabot** opens weekly update PRs for npm packages and GitHub Actions. It doesn't propose TypeScript 7 or `@types/node` majors (ADR-0014).
 - **Branch protection for `main`,** set by a repo admin under GitHub → Settings → Branches (or Rulesets):
     1. Require a pull request before merging, with 1 approval, and dismiss stale approvals when new commits are pushed.
@@ -43,7 +44,7 @@ If the code and this document disagree, fix one of them in the same PR. Never le
     3. Require conversation resolution before merging.
     4. Block force pushes and deletions.
     5. Under General → Pull Requests, allow **squash merging only**, with the default commit message set to the pull request title.
-- **One task, one squash commit on `main`.** The PR title becomes that commit's message, so it must be a Conventional Commit, for example `feat(config): typed config with startup validation (F6)`. CI checks commit messages on `main`, so a bad title fails there.
+- **One batch, one squash commit on `main`.** The PR title becomes that commit's message, so it must be a Conventional Commit, for example `feat: authentication, MongoDB and migrations (F11–F13)`. CI checks commit messages on `main`, so a bad title fails there.
 
 ## Project structure
 
@@ -57,7 +58,7 @@ See [ADR-0004](adr/0004-project-structure.md) for the full tree.
 | `src/infrastructure/` | Connections to the outside world: database, Redis, queues, logger, health, HTTP error responses | Business rules |
 | `src/modules/<name>/` | One business feature: controllers, services, repositories, schemas, DTOs, errors, consumers | Imports of another module's internals |
 | `src/lambdas/` | Small AWS Lambda handlers in plain TypeScript | Anything from `@nestjs/*` |
-| `migrations/` | Ordered MongoDB index and data migrations | Code that runs at app startup |
+| `src/migrations/` | Ordered MongoDB index and data migrations (`NNNN-name.ts`) | Imports of models or business code; code that runs at app startup |
 | `test/` | HTTP end-to-end tests and shared test helpers | Unit tests (those sit next to the code) |
 | `deploy/` | AWS CDK | Application code |
 
@@ -160,6 +161,42 @@ Every error response has one shape ([ADR-0008](adr/0008-error-contract.md)):
 - **Services** receive the `Actor` from the controller as an argument, for permission and audit decisions. They never read the request.
 - **Local calls:** `pnpm dev:token --roles <role,...>` prints a token signed with the local secret from `.env`.
 
+## Database
+
+- **Connections** ([ADR-0005](adr/0005-database.md)): `DB.main` (today's Helium database, read-only user) and `DB.messaging`, from `src/infrastructure/database/`. A module registers its models on one: `MongooseModule.forFeature([{ name: Campaign.name, schema: CampaignSchema }], DB.messaging)`, and its repository injects them with `@InjectModel(Campaign.name, DB.messaging)`.
+- **Repositories** are the only code that touches Mongoose (R1). One repository per collection, in the owning module.
+    - Reads use `.lean()` and return plain objects.
+    - Lists use `findPage(model, filter, { limit, cursor })`: newest first by `_id`, cursor-based, never `skip`. The filter needs an index ending in `_id`, such as `{ status: 1, _id: -1 }`. Its `limit`/`cursor` come straight from `paginationQuery`.
+    - Writes that must succeed or fail together use `withTransaction(connection, async (session) => ...)`, passing `session` to every operation. Only when a use case needs it; keep it short and free of calls to other services.
+- **Settings that protect us:**
+    - A filter on a field the schema doesn't define throws (`strictQuery: 'throw'`), instead of being dropped and matching everything.
+    - `retryWrites` is off everywhere, as DocumentDB requires.
+    - Indexes and collections are created from schemas only on a developer's machine (`APP_ENV=local`). Everywhere else they come from migrations (F13).
+    - A database that can't be reached at startup fails the start; `/health/ready` pings both connections.
+- **Locally:** `docker compose up -d` starts a MongoDB 7 replica set matching `.env.example`. Tests start their own container (`test/global-setup.ts`); integration tests take a fresh database each from `connectTestDatabase()` (`test/helpers/mongo.ts`).
+
+## Migrations
+
+- **Every index and data change** to the messaging database is a migration ([ADR-0005](adr/0005-database.md)). The `main` database is read-only for us and has none.
+- **Adding one:** `pnpm migrate:create "add campaign indexes"` writes `src/migrations/NNNN-add-campaign-indexes.ts`. It fails until you write it, so a forgotten one can't pass a deploy:
+    ```ts
+    const migration: Migration = {
+      async up(db) {
+        await db.collection('campaigns').createIndex({ status: 1, _id: -1 });
+      },
+    };
+    export default migration;
+    ```
+    - It gets the driver's `Db`, never Mongoose models, which change later while a migration must keep doing exactly what it did.
+    - Up only: a mistake is fixed by a new migration. Never edit or renumber one that has been applied anywhere.
+    - Make it safe to run again after a partial failure: `createIndex` already is; data changes filter on what's still to do.
+    - Keep each one short (under 30 minutes, the lock's lifetime). A big backfill is a background job, not a migration.
+- **Running:** `pnpm migrate` applies pending migrations in number order; `pnpm migrate:status` lists them. Each applied migration is recorded in `_migrations`.
+    - The first failure stops the run; the failed migration runs again next time.
+    - A lock (`_migrations_lock`) makes a second, concurrent run fail. A crashed run's lock expires after 30 minutes.
+    - A pending migration numbered below one already applied (from a branch merged late) is refused: renumber it.
+- **Deploying:** `node dist/migrate.js up` runs as a one-off task before the new code starts (F25). New code must work with the database both before and after its migrations.
+
 ## HTTP
 
 - **Route prefixes by audience** ([ADR-0010](adr/0010-auth-and-access.md)). Module controllers use `@InternalController('campaigns')` from `src/common/http/`, which serves `/internal/v1/campaigns`. Plain `@Controller` is banned in `src/modules` by lint. `/admin/v1` and `/store/v1` are reserved; their decorators are added when those audiences arrive.
@@ -203,7 +240,7 @@ Every error response has one shape ([ADR-0008](adr/0008-error-contract.md)):
 | R5 | **Validation:** every input is validated with zod: body, query, params, env, queue messages, webhook payloads. Unknown keys are rejected (`z.strictObject`), except in third-party payloads (`z.looseObject`). See [Validation and API docs](#validation-and-api-docs) | Global validation pipe (tested); lint bans `z.object` in `src/modules`; review |
 | R6 | **Errors:** throw an `AppError` subclass from the module's `*.errors.ts`. Never throw `HttpException` or a bare `Error` from services. Error codes are `SCREAMING_SNAKE_CASE`, unique, and never reused. See [Errors](#errors) | Lint in `src/modules` (no `*Exception` imports from `@nestjs/common`, no `throw new Error`); review for codes |
 | R7 | **Access:** every route declares `@Public()` or `@RequirePermissions(...)`. Routes are denied by default. See [Authentication and access](#authentication-and-access) | Global guards; route-coverage test |
-| R8 | **Data access:** queries are scoped and indexed. Lists use cursor pagination, never `skip`. Hot paths use `bulkWrite` and `lean()`. Transactions only when a use case needs them, kept short | Review; slow-query log |
+| R8 | **Data access:** queries are scoped and indexed. Lists use cursor pagination, never `skip`. Hot paths use `bulkWrite` and `lean()`. Transactions only when a use case needs them, kept short. See [Database](#database) | `findPage` and `withTransaction` helpers; `strictQuery: 'throw'`; review |
 | R9 | **Database writes:** the `main` database is read-only from this backend unless an ADR grants a module write access to specific collections | Database user permissions (*planned, F24*) |
 | R10 | **Idempotency:** queue consumers are idempotent by a natural key. Mutating admin endpoints accept `Idempotency-Key` | Review; F15 interceptor |
 | R11 | **Async work:** nothing slow or external runs inside an HTTP request that the caller waits on. Put it on a queue | Review |
@@ -244,3 +281,5 @@ Every error response has one shape ([ADR-0008](adr/0008-error-contract.md)):
 | 2026-10-29 | New HTTP section; smoke tests added to R14 (F10) |
 | 2026-10-29 | Tasks are reviewed in batches of two to four, one branch and PR per batch |
 | 2026-10-29 | New Authentication and access section; R7 enforced (F11) |
+| 2026-10-29 | New Database section; R8 helpers (F12) |
+| 2026-10-29 | New Migrations section; migrations live in `src/migrations/` (F13) |
