@@ -36,7 +36,7 @@ It was tested with Vitest and supertest against a real MongoDB 7 container, then
 | Database | mongoose | 9.11.4 |
 | Validation | zod | 4.6.7 |
 | Logging and context | `nestjs-pino` 5.3.1, `pino` 10.4.0, `pino-http` 11.0.0, `nestjs-cls` 7.0.2 | |
-| Other runtime | `reflect-metadata` 0.2.2, `rxjs` 7.8.2, `helmet` 8.3.0 (added in F10), `jose` 6.2.12 (added in F11), `ioredis` 6.0.0 (F14), `@aws-sdk/client-sqs` 3.1152.0 (F16) | |
+| Other runtime | `reflect-metadata` 0.2.2, `rxjs` 7.8.2, `helmet` 8.3.0 (added in F10), `jose` 6.2.12 (added in F11), `ioredis` 6.0.0 (F14), `@aws-sdk/client-sqs` 3.1152.0 (F16), `croner` 10.0.1 (F18, local schedule timer) | |
 | Tests | vitest 5.0.5, supertest 7.3.1, testcontainers and `@testcontainers/mongodb` 12.2.1, image `mongo:7.0` | |
 | Lint and format (F3) | eslint 10.x, typescript-eslint 8.72.x, prettier 3.9.x, husky 9, lint-staged 17, commitlint 21 | |
 

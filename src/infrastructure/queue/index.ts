@@ -18,3 +18,11 @@ export {
   type ReceivedMessage,
   retry,
 } from './consumer/consumer.js';
+export { LocalScheduler, SCHEDULES } from './schedules/local-scheduler.js';
+export {
+  defineSchedule,
+  type ExportedSchedule,
+  exportSchedules,
+  type Schedule,
+  toEventBridgeCron,
+} from './schedules/schedule.js';

@@ -6,13 +6,15 @@ import { HealthModule } from './infrastructure/health/health.module.js';
 import { HttpErrorsModule } from './infrastructure/http/http-errors.module.js';
 import { LoggerModule } from './infrastructure/logger/logger.module.js';
 import { ConsumerRunner } from './infrastructure/queue/consumer/consumer-runner.js';
-import { QueueModule } from './infrastructure/queue/index.js';
+import { LocalScheduler, QueueModule, SCHEDULES as SCHEDULES_TOKEN } from './infrastructure/queue/index.js';
 import { RedisModule } from './infrastructure/redis/index.js';
 import { RequestContextModule } from './infrastructure/request-context/request-context.module.js';
+import { SystemModule } from './modules/system/index.js';
+import { SCHEDULES } from './schedules.js';
 
 /**
- * Root module of the worker process: the same infrastructure as the API, the consumer runner, and only a
- * health endpoint over HTTP. Business modules that own consumers are imported here as they are added.
+ * Root module of the worker process: the same infrastructure as the API, the consumer runner, the local
+ * scheduler, and only a health endpoint over HTTP. Business modules that own consumers are imported here.
  */
 @Module({
   imports: [
@@ -25,7 +27,8 @@ import { RequestContextModule } from './infrastructure/request-context/request-c
     QueueModule,
     DiscoveryModule,
     HealthModule,
+    SystemModule,
   ],
-  providers: [ConsumerRunner],
+  providers: [ConsumerRunner, LocalScheduler, { provide: SCHEDULES_TOKEN, useValue: SCHEDULES }],
 })
 export class WorkerModule {}

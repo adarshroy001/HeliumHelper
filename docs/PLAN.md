@@ -31,7 +31,7 @@ The workflow and the Definition of Done for every task are in [CONVENTIONS.md](C
 | F15 | Rate limiting and idempotency | F11, F14 | In review |
 | F16 | Queue publisher | F10 | In review |
 | F17 | Queue consumer runner and worker process | F16 | In review |
-| F18 | Scheduled jobs | F17 | Not started |
+| F18 | Scheduled jobs | F17 | In review |
 | F19 | Audit log | F12 | Not started |
 | F20 | Local development polish | F17 | Not started |
 | F21 | Skills and conventions review | F20 | Not started |

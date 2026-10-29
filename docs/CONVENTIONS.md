@@ -243,6 +243,12 @@ Every error response has one shape ([ADR-0008](adr/0008-error-contract.md)):
     - Handlers are idempotent by a natural key (R10): SQS may deliver a message more than once.
     - Each message runs in its own context: `ClsService.getId()` is its `correlationId`, and every log line carries `correlationId`, `messageId` and `queue`.
 - **The worker process** (`src/worker.ts`, `pnpm start:worker`) runs the consumers named in `WORKER_QUEUES` (comma-separated, or `*`), and serves only `/health/*` on `WORKER_HEALTH_PORT`. A name without a consumer fails the start. On SIGTERM it stops receiving, finishes in-flight messages (up to 25 seconds) and exits; anything unfinished comes back after its visibility timeout. Business modules with consumers are imported into `WorkerModule`.
+- **Scheduled jobs** never run code from a timer: at each tick a message goes on a queue and a normal consumer handles it ([ADR-0006](adr/0006-async-work.md)).
+    - Declare one with `defineSchedule({ name, description, cron, timezone, queue, message, data })` in the owning module, and add it to `src/schedules.ts`.
+    - `cron` has five fields; day-of-week is `*` or names (`MON-FRI`), never numbers. Set day-of-month or day-of-week, not both.
+    - Run `pnpm schedules:export` after any change: the CDK stack creates one EventBridge Scheduler schedule per entry from `deploy/schedules.json`, and a test fails while the file is stale.
+    - Locally the worker's timer publishes the same messages (`APP_ENV=local`, not in tests).
+    - A scheduled message's envelope gets EventBridge's execution ID as `id` and `correlationId`, and the scheduled time as `ts`.
 - **Locally:** ElasticMQ in docker-compose; queues are declared in `docker/elasticmq.conf`, each with its `-dlq`. Tests create their own queues with `createTestQueue()` (`test/helpers/sqs.ts`).
 
 ## HTTP
@@ -333,4 +339,4 @@ Every error response has one shape ([ADR-0008](adr/0008-error-contract.md)):
 | 2026-10-29 | New Migrations section; migrations live in `src/migrations/` (F13) |
 | 2026-10-29 | New Redis section (F14) |
 | 2026-10-29 | New Rate limits and idempotency section; R10 enforced by `@Idempotent()` (F15) |
-| 2026-10-29 | New Queues section (F16); consumers and the worker process added (F17) |
+| 2026-10-29 | New Queues section (F16); consumers and the worker process added (F17); scheduled jobs added (F18) |

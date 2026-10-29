@@ -7,8 +7,11 @@ const MESSAGE_TYPE = /^[a-z][a-z\d]*(\.[a-z][a-zA-Z\d]*){2}$/;
 export const envelopeSchema = z.strictObject({
   /** Envelope version. A breaking change to this shape adds a new version. */
   v: z.literal(1),
-  /** Unique per message: the deduplication key for FIFO queues and idempotent consumers. */
-  id: z.uuid(),
+  /**
+   * Unique per message: the deduplication key for FIFO queues and idempotent consumers. A UUID when we
+   * publish; EventBridge Scheduler's execution ID for scheduled messages.
+   */
+  id: z.string().min(1).max(128),
   type: z.string().regex(MESSAGE_TYPE),
   /** When it was published (ISO 8601, UTC). */
   ts: z.iso.datetime(),

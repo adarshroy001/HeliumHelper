@@ -46,6 +46,7 @@ Run pnpm through Corepack (`corepack pnpm …`), or `corepack enable` once and t
 | `pnpm test:e2e` | HTTP tests (`test/**/*.e2e-spec.ts`) |
 | `pnpm dev:token --roles <roles>` | Print a 5-minute service token for calling the local API |
 | `pnpm migrate` / `migrate:status` / `migrate:create <name>` | Apply pending migrations, list them, or add `src/migrations/NNNN-<name>.ts` (each builds first) |
+| `pnpm schedules:export` | Write `deploy/schedules.json` from `src/schedules.ts` (after changing a schedule) |
 | `pnpm test:smoke` | Run the built app as a process: SIGTERM, startup failure (`test/smoke/`; run `pnpm build` first; the SIGTERM test is skipped on Windows) |
 | `pnpm test:cov` | All tests with a coverage report in `coverage/` |
 
@@ -64,7 +65,7 @@ Migrations (F13) are added by that task. Git hooks run lint-staged on commit and
 
 **Database:** models register on `DB.main` (read-only) or `DB.messaging`; only repositories use them. Lists use `findPage()`, atomic multi-document writes use `withTransaction()`. Integration tests get a fresh database from `connectTestDatabase()`. See CONVENTIONS → Database.
 
-**Queues:** declare message types with `defineMessage()` in the owning module; publish with `QueuePublisher`; consume with a `@Consumer()` class returning `ack()`/`retry()`/`park()`/`hold()`, imported into `WorkerModule`. See CONVENTIONS → Queues.
+**Queues:** declare message types with `defineMessage()` in the owning module; publish with `QueuePublisher`; consume with a `@Consumer()` class returning `ack()`/`retry()`/`park()`/`hold()`, imported into `WorkerModule`. Crons are `defineSchedule()` entries in `src/schedules.ts`. See CONVENTIONS → Queues.
 
 **Retries and limits:** mutating routes callers may retry get `@Idempotent()` (from `src/infrastructure/idempotency`). Limits are per caller per audience; change one with `@Throttle({ internal: { limit, ttl } })`. See CONVENTIONS → Rate limits and idempotency.
 
