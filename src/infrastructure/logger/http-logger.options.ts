@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { stdTimeFunctions } from 'pino';
+import { stdTimeFunctions, type LoggerOptions } from 'pino';
 import type { Options } from 'pino-http';
 import type { AppConfig } from '../../config/index.js';
 import { resolveRequestId } from '../request-context/request-id.js';
@@ -25,6 +25,13 @@ export const REDACTED_PATHS = [
   '*.apiKey',
 ];
 
+/** Settings every logger shares, so all lines look alike: ISO time, the level as a word, redaction. */
+export const LOG_LINE_OPTIONS = {
+  timestamp: stdTimeFunctions.isoTime,
+  formatters: { level: (label: string) => ({ level: label }) },
+  redact: { paths: REDACTED_PATHS, censor: '[Redacted]' },
+} satisfies LoggerOptions;
+
 /** Path only: query strings can carry phone numbers or other personal data (CONVENTIONS R13). */
 function pathOf(url: string | undefined): string {
   return (url ?? '').split('?')[0] ?? '';
@@ -35,9 +42,7 @@ export function httpLoggerOptions(app: AppConfig): Options {
   return {
     level: app.logLevel,
     base: { service: app.name, env: app.appEnv },
-    timestamp: stdTimeFunctions.isoTime,
-    formatters: { level: (label) => ({ level: label }) },
-    redact: { paths: REDACTED_PATHS, censor: '[Redacted]' },
+    ...LOG_LINE_OPTIONS,
 
     genReqId: (req: IncomingMessage, res: ServerResponse) => resolveRequestId(req, res),
     // App logs during a request carry only `requestId`, not the whole request.
