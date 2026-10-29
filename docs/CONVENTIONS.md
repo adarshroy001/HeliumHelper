@@ -33,7 +33,7 @@ If the code and this document disagree, fix one of them in the same PR. Never le
 - **CI** (`.github/workflows/ci.yml`) runs on every pull request and on every push to `main`. It runs these steps in order:
     1. install from the lockfile;
     2. commit message check (the pull request's commits, or the commits pushed to `main`);
-    3. format, lint, typecheck;
+    3. format, lint, typecheck, `cdk synth`;
     4. unit, integration and HTTP tests;
     5. build;
     6. smoke tests of the built app;
@@ -259,6 +259,14 @@ Every error response has one shape ([ADR-0008](adr/0008-error-contract.md)):
 - `action` is `{entity}.{verb}` (`campaign.start`); only fields that differ between `before` and `after` are stored, as `{ from, to }`; the actor, `requestId` and time are filled in. Never pass secrets or message bodies.
 - See `src/modules/audit/README.md` for indexes and retention.
 
+## Infrastructure
+
+- **All AWS resources are CDK code** in `deploy/` ([ADR-0011](adr/0011-hosting.md)); nothing is created by hand except the values of secrets. See `deploy/README.md`.
+- `deploy/` is TypeScript run directly by Node 24: only erasable syntax (no enums, namespaces or constructor parameter properties) and relative imports with `.ts`. It has its own `deploy/tsconfig.json`, and `pnpm typecheck`, `pnpm lint` and `pnpm test` cover it.
+- **Environments** are data in `deploy/config/environments.ts`. Existing resources (VPC, subnets, DocumentDB) are referenced by ID, so `cdk synth` needs no AWS access and runs in CI.
+- **Tests** assert on the synthesized templates (`deploy/test/`): anything that protects data or access (retention, encryption, private networking, least privilege) has a test.
+- Resources holding data or history (repository, log groups, secrets, queues) are kept when a stack is deleted.
+
 ## Docker image
 
 - **One image** (`Dockerfile`) runs every process; the command chooses: the API by default, `node --enable-source-maps dist/worker.js` for a worker (with `HEALTHCHECK_PORT=3001`), `node --enable-source-maps dist/migrate.js up` for migrations.
@@ -358,3 +366,4 @@ Every error response has one shape ([ADR-0008](adr/0008-error-contract.md)):
 | 2026-10-29 | New Audit log section (F19) |
 | 2026-10-29 | Skills added and docs checked against the code (F21) |
 | 2026-10-29 | New Docker image section (F22) |
+| 2026-10-29 | New Infrastructure section (F23) |

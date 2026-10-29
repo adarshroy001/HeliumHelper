@@ -36,7 +36,7 @@ export default defineConfig({
     projects: [
       {
         extends: true,
-        test: { name: 'unit', include: ['src/**/*.spec.ts', 'eslint/**/*.spec.ts'] },
+        test: { name: 'unit', include: ['src/**/*.spec.ts', 'eslint/**/*.spec.ts', 'deploy/**/*.spec.ts'] },
       },
       {
         extends: true,

@@ -63,6 +63,9 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      - name: Infrastructure templates (cdk synth)
+        run: pnpm cdk synth --quiet
+
       - name: Unit tests
         run: pnpm test
 

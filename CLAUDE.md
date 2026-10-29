@@ -58,6 +58,7 @@ Run pnpm through Corepack (`corepack pnpm …`), or `corepack enable` once and t
 | `pnpm dev:token --roles <roles>` | A 5-minute service token for calling the local API |
 | `pnpm migrate` / `migrate:status` / `migrate:create <name>` | Apply, list, or add a migration (each builds first) |
 | `pnpm schedules:export` | Write `deploy/schedules.json` from `src/schedules.ts` |
+| `pnpm cdk synth --quiet` / `pnpm cdk diff <stack>` | Check the AWS templates (`deploy/`, see its README) |
 | `docker build -t helium-backend .` | The one image for the API, the worker (`node dist/worker.js`) and migrations (`node dist/migrate.js up`) |
 
 Git hooks run lint-staged on commit and commitlint on the message.
