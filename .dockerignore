@@ -1,0 +1,12 @@
+# Allowlist: the build sees only what it needs, so nothing else (.env files, local data, tests) can end up in
+# the image.
+*
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!tsconfig.json
+!tsconfig.build.json
+!nest-cli.json
+!src/
+src/**/*.spec.ts
+src/**/*.int-spec.ts

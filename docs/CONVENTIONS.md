@@ -36,7 +36,8 @@ If the code and this document disagree, fix one of them in the same PR. Never le
     3. format, lint, typecheck;
     4. unit, integration and HTTP tests;
     5. build;
-    6. smoke tests of the built app.
+    6. smoke tests of the built app;
+    7. the Docker image: build, size budget, and a start check.
 - **Dependabot** opens weekly update PRs for npm packages and GitHub Actions. It doesn't propose TypeScript 7 or `@types/node` majors (ADR-0014).
 - **Branch protection for `main`,** set by a repo admin under GitHub → Settings → Branches (or Rulesets):
     1. Require a pull request before merging, with 1 approval, and dismiss stale approvals when new commits are pushed.
@@ -258,6 +259,13 @@ Every error response has one shape ([ADR-0008](adr/0008-error-contract.md)):
 - `action` is `{entity}.{verb}` (`campaign.start`); only fields that differ between `before` and `after` are stored, as `{ from, to }`; the actor, `requestId` and time are filled in. Never pass secrets or message bodies.
 - See `src/modules/audit/README.md` for indexes and retention.
 
+## Docker image
+
+- **One image** (`Dockerfile`) runs every process; the command chooses: the API by default, `node --enable-source-maps dist/worker.js` for a worker (with `HEALTHCHECK_PORT=3001`), `node --enable-source-maps dist/migrate.js up` for migrations.
+- Built in two stages on `node:24-slim`: production dependencies only, installed without any install scripts; runs as the unprivileged `node` user; `HEALTHCHECK` calls `/health/live`.
+- `.dockerignore` is an allowlist: only `package.json`, the lockfile, the tsconfigs and `src/` (without tests) reach the build. A new file the build needs must be added to it.
+- **Budget:** 500 MB (`docker image inspect`), checked by CI, which also checks that the image starts. Today: about 440 MB, of which 118 MB is ours.
+
 ## HTTP
 
 - **Route prefixes by audience** ([ADR-0010](adr/0010-auth-and-access.md)). Module controllers use `@InternalController('campaigns')` from `src/common/http/`, which serves `/internal/v1/campaigns`. Plain `@Controller` is banned in `src/modules` by lint. `/admin/v1` and `/store/v1` are reserved; their decorators are added when those audiences arrive.
@@ -349,3 +357,4 @@ Every error response has one shape ([ADR-0008](adr/0008-error-contract.md)):
 | 2026-10-29 | New Queues section (F16); consumers and the worker process added (F17); scheduled jobs added (F18) |
 | 2026-10-29 | New Audit log section (F19) |
 | 2026-10-29 | Skills added and docs checked against the code (F21) |
+| 2026-10-29 | New Docker image section (F22) |

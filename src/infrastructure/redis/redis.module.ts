@@ -3,6 +3,9 @@ import { Redis } from 'ioredis';
 import { PinoLogger } from 'nestjs-pino';
 import { redisConfig, type RedisConfig } from '../../config/index.js';
 
+/** Clients being closed on purpose (shutdown): losing their connection is expected, not worth a warning. */
+const closing = new WeakSet<Redis>();
+
 /**
  * Opens the shared client at startup. A Redis that can't be reached fails the start, like MongoDB.
  * While disconnected, commands fail at once instead of queueing, so each caller decides what an outage means
@@ -28,7 +31,7 @@ async function connectRedis(config: RedisConfig, logger: PinoLogger): Promise<Re
     connected = true;
   });
   client.on('close', () => {
-    if (connected) logger.warn('redis connection lost');
+    if (connected && !closing.has(client)) logger.warn('redis connection lost');
     connected = false;
   });
 
@@ -47,6 +50,7 @@ class RedisShutdown implements OnApplicationShutdown {
   constructor(@Inject(Redis) private readonly redis: Redis) {}
 
   async onApplicationShutdown(): Promise<void> {
+    closing.add(this.redis);
     try {
       await this.redis.quit();
     } catch {

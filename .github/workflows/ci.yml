@@ -77,3 +77,14 @@ jobs:
 
       - name: Smoke tests (built app)
         run: pnpm test:smoke
+
+      - name: Docker image
+        run: |
+          docker build -t helium-backend:ci .
+          size=$(docker image inspect helium-backend:ci --format '{{.Size}}')
+          echo "image size: $((size / 1024 / 1024)) MB (budget 500 MB)"
+          test "$size" -lt $((500 * 1024 * 1024)) || { echo "The image is over its 500 MB budget."; exit 1; }
+          # The image starts and loads every dependency: without configuration it must exit 1 with one JSON line.
+          set +e; out=$(docker run --rm helium-backend:ci); code=$?; set -e
+          echo "$out"
+          test "$code" -eq 1 && echo "$out" | grep -q '"msg":"startup failed"'

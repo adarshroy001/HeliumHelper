@@ -35,7 +35,7 @@ The workflow and the Definition of Done for every task are in [CONVENTIONS.md](C
 | F19 | Audit log | F12 | In review |
 | F20 | Local development polish | F17 | In review |
 | F21 | Skills and conventions review | F20 | In review |
-| F22 | Docker image | F17 | Not started |
+| F22 | Docker image | F17 | In review |
 | F23 | AWS foundation (CDK) | F22 | Not started |
 | F24 | AWS data and queues | F23 | Not started |
 | F25 | AWS services and staging deploy | F24 | Not started |
