@@ -1,4 +1,6 @@
 import { CfnOutput, Duration, Stack, type StackProps } from 'aws-cdk-lib';
+import { Alarm, ComparisonOperator, TreatMissingData } from 'aws-cdk-lib/aws-cloudwatch';
+import { SnsAction } from 'aws-cdk-lib/aws-cloudwatch-actions';
 import { type ISecurityGroup, type IVpc, Peer, Port, SecurityGroup } from 'aws-cdk-lib/aws-ec2';
 import {
   type ICluster,
@@ -15,6 +17,7 @@ import {
   Protocol,
 } from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import type { ILogGroup } from 'aws-cdk-lib/aws-logs';
+import type { ITopic } from 'aws-cdk-lib/aws-sns';
 import type { Queue } from 'aws-cdk-lib/aws-sqs';
 import type { Construct } from 'constructs';
 import { type AppRuntime, appImage, liveness, serviceEnvironment } from './app-runtime.ts';
@@ -26,6 +29,7 @@ export interface ServicesStackProps extends StackProps {
   readonly logGroups: { readonly api: ILogGroup; readonly worker: ILogGroup };
   readonly servicesSecurityGroup: ISecurityGroup;
   readonly queues: ReadonlyMap<string, { readonly queue: Queue; readonly dlq: Queue }>;
+  readonly alarmTopic: ITopic;
 }
 
 const API_PORT = 3000;
@@ -121,7 +125,7 @@ export class ServicesStack extends Stack {
         : { certificates: [ListenerCertificate.fromArn(config.certificateArn)] }),
       open: false,
     });
-    listener.addTargets('Api', {
+    const targets = listener.addTargets('Api', {
       port: API_PORT,
       protocol: ApplicationProtocol.HTTP,
       targets: [api],
@@ -134,6 +138,16 @@ export class ServicesStack extends Stack {
         unhealthyThresholdCount: 3,
       },
     });
+
+    new Alarm(this, 'ApiUnhealthy', {
+      alarmName: `${config.prefix}-api-no-healthy-targets`,
+      alarmDescription: 'The API load balancer has no healthy tasks: readiness fails or tasks are down',
+      metric: targets.metrics.healthyHostCount({ period: Duration.minutes(1) }),
+      threshold: 1,
+      evaluationPeriods: 3,
+      comparisonOperator: ComparisonOperator.LESS_THAN_THRESHOLD,
+      treatMissingData: TreatMissingData.BREACHING,
+    }).addAlarmAction(new SnsAction(props.alarmTopic));
 
     // --- Worker
     const workerTask = new FargateTaskDefinition(this, 'WorkerTask', {

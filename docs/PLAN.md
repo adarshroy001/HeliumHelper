@@ -39,7 +39,7 @@ The workflow and the Definition of Done for every task are in [CONVENTIONS.md](C
 | F23 | AWS foundation (CDK) | F22 | In review |
 | F24 | AWS data and queues | F23 | In review |
 | F25 | AWS services and staging deploy | F24 | In review (staging deploy needs AWS access) |
-| F26 | Deploy pipeline and runbook | F25 | Not started |
+| F26 | Deploy pipeline and runbook | F25 | In review (first deploy and rollback rehearsal need AWS access) |
 | M1–M21 | Messaging (below) | F26 | Not started |
 
 Where the dependencies allow, tasks may be done in a different order. The order above is the default.

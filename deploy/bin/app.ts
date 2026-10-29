@@ -7,6 +7,7 @@ import type { AppRuntime } from '../lib/app-runtime.ts';
 import { DataStack } from '../lib/data-stack.ts';
 import { FoundationStack } from '../lib/foundation-stack.ts';
 import { MigrationStack } from '../lib/migration-stack.ts';
+import { PipelineStack } from '../lib/pipeline-stack.ts';
 import { ServicesStack } from '../lib/services-stack.ts';
 
 const app = new App();
@@ -50,9 +51,16 @@ for (const config of ENVIRONMENTS) {
     logGroups: foundation.logGroups,
     servicesSecurityGroup: foundation.servicesSecurityGroup,
     queues: data.queues,
+    alarmTopic: foundation.alarmTopic,
   });
 
-  for (const stack of [foundation, data, migration, services]) {
+  const pipeline = new PipelineStack(app, `${config.prefix}-pipeline`, {
+    env,
+    config,
+    repository: foundation.repository,
+  });
+
+  for (const stack of [foundation, data, migration, services, pipeline]) {
     Tags.of(stack).add('project', 'helium-backend');
     Tags.of(stack).add('environment', config.name);
   }

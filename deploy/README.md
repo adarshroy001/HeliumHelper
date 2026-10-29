@@ -13,19 +13,19 @@ Infrastructure as code for every environment ([ADR-0011](../docs/adr/0011-hostin
 | `lib/data-stack.ts` | Valkey, queues and DLQs with alarms, schedules, DocumentDB access (F24) |
 | `lib/migration-stack.ts` | The migration task definition, run before each release (F25) |
 | `lib/services-stack.ts` | The API behind an internal load balancer, and the worker (F25) |
-| `scripts/` | One-off scripts run by hand (database users) |
+| `lib/pipeline-stack.ts` | GitHub Actions' OIDC trust and deploy role (F26) |
+| `scripts/` | `release.sh` (the release order, used by the pipeline) and the database users script |
 | `test/` | Template assertions (`pnpm test` runs them) |
 
 ## Stacks per environment
 
-`<prefix>-foundation` → `<prefix>-data` → `<prefix>-migration` → `<prefix>-services`, where the prefix is `helium-staging` or `helium-production`. Each depends on the ones before it.
+`<prefix>-foundation` → `<prefix>-data` → `<prefix>-migration` → `<prefix>-services`, plus `<prefix>-pipeline`, where the prefix is `helium-staging` or `helium-production`. Each depends on the ones before it.
 
 ## Before the first deploy
 
 1. Fill the `TODO(aws)` values in `config/environments.ts`: account ID, VPC and private subnet IDs, the DocumentDB cluster's security group, and HeliumAdmin's security group (or CIDRs). `cdk synth` warns while placeholders remain.
 2. Bootstrap CDK once per account and region: `pnpm cdk bootstrap aws://<account>/ap-south-1`.
-3. Deploy the foundation: `pnpm cdk deploy helium-staging-foundation`.
-4. Set the secrets that aren't generated (Secrets Manager, `helium/<env>/...`): see the runbook.
+3. Follow "First-time setup" in the runbook: foundation, pipeline and data stacks, the database user, the secrets, then GitHub.
 
 The full release procedure is in [docs/RUNBOOK.md](../docs/RUNBOOK.md).
 

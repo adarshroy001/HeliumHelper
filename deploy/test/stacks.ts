@@ -46,6 +46,7 @@ export function stagingStacks() {
     logGroups: foundation.logGroups,
     servicesSecurityGroup: foundation.servicesSecurityGroup,
     queues: data.queues,
+    alarmTopic: foundation.alarmTopic,
   });
   return { app, config, env, foundation, data, migration, services };
 }

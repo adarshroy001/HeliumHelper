@@ -3,7 +3,8 @@
 //
 //   BACKEND_PASSWORD='<new strong password>' mongosh "<admin connection string>" --file deploy/scripts/create-messaging-db-users.js
 //
-// It creates (or updates the roles of) one user, `helium-backend`, with:
+// It creates (or updates the password and roles of) one user, `helium-backend` (or BACKEND_USER, used when
+// rotating the password without downtime: see docs/RUNBOOK.md), with:
 //   - read on `helium` (today's database, owned by the storefront): the backend never writes there (R9);
 //   - readWrite on `helium_messaging`, the database this backend owns. It is created by the first migration.
 // Later, the messaging migration (M8) needs write access to the legacy WhatsApp collections in `helium`; that is
@@ -13,7 +14,7 @@
 // helium/<env>/mongo-messaging-uri); docs/RUNBOOK.md shows the format.
 
 /* global db, print */
-const user = 'helium-backend';
+const user = process.env.BACKEND_USER || 'helium-backend';
 const password = process.env.BACKEND_PASSWORD;
 if (!password || password.length < 24) {
   throw new Error('Set BACKEND_PASSWORD to a strong password of 24 characters or more');

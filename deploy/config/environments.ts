@@ -26,7 +26,15 @@ export interface EnvironmentConfig {
   readonly logRetention: RetentionDays;
   /** Gets alarm notifications until the Slack channel is connected (F26). */
   readonly alarmEmail?: string;
+  /**
+   * GitHub Actions' OIDC provider in this account: `create` it, or use the `existing` one (an account has at
+   * most one; use `existing` when another stack or environment in the same account already created it).
+   */
+  readonly githubOidcProvider: 'create' | 'existing';
 }
+
+/** The repository whose workflows may deploy (F26). */
+export const GITHUB_REPOSITORY = 'adarshroy001/HeliumHelper';
 
 interface ServiceSize {
   /** Fargate CPU units: 256, 512, 1024 ... */
@@ -53,6 +61,7 @@ export const ENVIRONMENTS: readonly EnvironmentConfig[] = [
     worker: { cpu: 512, memoryMiB: 1024, minCount: 1, maxCount: 3 },
     valkeyNodeType: 'cache.t4g.small',
     logRetention: RetentionDays.TWO_WEEKS,
+    githubOidcProvider: 'create',
   },
   {
     name: 'production',
@@ -70,6 +79,7 @@ export const ENVIRONMENTS: readonly EnvironmentConfig[] = [
     worker: { cpu: 1024, memoryMiB: 2048, minCount: 2, maxCount: 6 },
     valkeyNodeType: 'cache.t4g.medium',
     logRetention: RetentionDays.THREE_MONTHS,
+    githubOidcProvider: 'create', // TODO(aws): 'existing' if production shares staging's account
   },
 ];
 

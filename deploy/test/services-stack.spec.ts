@@ -85,6 +85,14 @@ describe('ServicesStack', () => {
     expect(consumers[0]).toContain('WorkerTaskTaskRole');
   });
 
+  it('alarms when the API has no healthy tasks', () => {
+    template.hasResourceProperties('AWS::CloudWatch::Alarm', {
+      AlarmName: 'helium-staging-api-no-healthy-targets',
+      ComparisonOperator: 'LessThanThreshold',
+      Threshold: 1,
+    });
+  });
+
   it('scales each service between its minimum and maximum', () => {
     template.hasResourceProperties('AWS::ApplicationAutoScaling::ScalableTarget', {
       MinCapacity: 1,
