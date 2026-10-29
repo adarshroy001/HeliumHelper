@@ -8,14 +8,14 @@ If the code and this document disagree, fix one of them in the same PR. Never le
 
 ## How we work
 
-1. **One task at a time.** Tasks come from [PLAN.md](PLAN.md). Each is small enough to review in one sitting.
+1. **Small tasks, reviewed in batches.** Tasks come from [PLAN.md](PLAN.md); each stays small. Two to four related tasks go into one branch and one PR.
 2. **Before coding,** re-read the task block. If the scope is unclear or wrong, fix the plan first.
-3. **One branch per task:** `task/<id>-<short-name>`, for example `task/f6-config`, branched from `main`.
+3. **One branch per batch:** `task/<first-id>-<last-id>-<short-name>`, for example `task/f11-f13-auth-mongo`, branched from `main` (or from the previous batch while it awaits merge). Each task still gets its own commits.
 4. **Build** with tests alongside the code, not after it.
 5. **Update docs in the same PR:** this file, `CLAUDE.md`, an ADR, a module README or a skill, whichever the change affects.
 6. **Self-review** against the Definition of Done below.
 7. **Push the branch and open a PR** to `main` using the template. CI runs on the PR and again on every push to it.
-8. **Stop at review.** The next task starts only after this one is approved and merged.
+8. **Stop at review.** The next batch starts only after this one is approved.
 9. **Commits:** small, logical commits with Conventional Commit messages, for example `feat(config): validate env at startup`. No attribution trailers. The coding agent may commit and push task branches. Merging to `main` happens through a reviewed PR.
 
 ### Definition of Done
@@ -54,7 +54,7 @@ See [ADR-0004](adr/0004-project-structure.md) for the full tree.
 | `src/` root files | `main.ts` (API start), `app.module.ts` (what the API loads), `app.setup.ts` (global setup shared with HTTP tests) | Business logic; global setup only in `main.ts` |
 | `src/config/` | One zod-validated config file per area | Defaults that are only safe in development, unless checked against the environment |
 | `src/common/` | Code features use directly: errors, auth guards and decorators, validation, small pure utils | Business rules; connections to external systems |
-| `src/infrastructure/` | Connections to the outside world: database, Redis, queues, logger, health | Business rules |
+| `src/infrastructure/` | Connections to the outside world: database, Redis, queues, logger, health, HTTP error responses | Business rules |
 | `src/modules/<name>/` | One business feature: controllers, services, repositories, schemas, DTOs, errors, consumers | Imports of another module's internals |
 | `src/lambdas/` | Small AWS Lambda handlers in plain TypeScript | Anything from `@nestjs/*` |
 | `migrations/` | Ordered MongoDB index and data migrations | Code that runs at app startup |
@@ -111,6 +111,87 @@ See [ADR-0004](adr/0004-project-structure.md) for the full tree.
 
     Known secret field names (`token`, `password`, `secret`, `authorization`, `apiKey` and similar, top level or one level deep) are replaced with `[Redacted]` automatically. That's a safety net, not permission to log them.
 
+## Errors
+
+Every error response has one shape ([ADR-0008](adr/0008-error-contract.md)):
+
+```json
+{ "statusCode": 404, "code": "CAMPAIGN_NOT_FOUND", "message": "Campaign not found.", "details": { "campaignId": "…" }, "requestId": "…" }
+```
+
+- `details` is present only when the error has details. `requestId` equals the `X-Request-Id` response header.
+- **Throwing:** a module defines its errors in `<module>.errors.ts` by extending a common error from `src/common/errors/`, fixing the code and message:
+    ```ts
+    export class CampaignNotFoundError extends NotFoundError {
+      constructor(campaignId: string) {
+        super('CAMPAIGN_NOT_FOUND', 'Campaign not found.', { details: { campaignId } });
+      }
+    }
+    ```
+    - Common errors: `ValidationError` (400 `VALIDATION_FAILED`, `details.fields`), `UnauthorizedError` (401), `ForbiddenError` (403), `NotFoundError` (404), `ConflictError` (409), `RateLimitedError` (429 `RATE_LIMITED`, `details.retryAfterSeconds`).
+    - The message is sent to the client as is: write it for a user, and never put internals in it.
+    - Pass the original error as `cause` when wrapping one. It is logged for 5xx errors, never sent.
+    - `retryable` (default `false`) tells a worker whether to retry. `RateLimitedError` is retryable.
+- **What the client gets** (`src/infrastructure/http/error-response.ts`):
+    - an `AppError`: its own status, code, message and details;
+    - a Nest exception in the 4xx range (unknown route, invalid JSON): its status with a fixed code and message such as `NOT_FOUND` or `BAD_REQUEST`;
+    - anything else: 500 `INTERNAL_ERROR` with a generic message. Nothing about the cause is revealed.
+- **Logging:** a 5xx is logged once, at error level, as the request's access log line with the error and its stack attached. A 4xx is only the warn-level access line.
+- **Startup failures and crashes:** a failed start, an uncaught exception or an unhandled rejection is logged as one `fatal` JSON line, then the process exits with code 1 so the platform restarts it.
+
+## Authentication and access
+
+- **Deny by default** ([ADR-0010](adr/0010-auth-and-access.md)). Two global guards run on every route: `AuthGuard` checks the token, `PermissionsGuard` checks the route's access decision. Every route declares one:
+    ```ts
+    @InternalController('campaigns')
+    export class CampaignsController {
+      @Get()
+      @RequirePermissions('campaigns:read')
+      list(@CurrentActor() actor: Actor) { ... }
+    }
+    ```
+    - `@Public()`: no token needed (health checks). Use it rarely.
+    - `@RequirePermissions('<area>:<action>', ...)`: a valid token whose user holds every listed permission.
+    - On a controller, either applies to all its routes; a route can override it.
+    - A route with neither is refused with 403 `ACCESS_NOT_DECLARED`, and the route-coverage test (`test/route-access.e2e-spec.ts`) fails CI.
+- **Tokens:** callers send `Authorization: Bearer <JWT>`, HS256, signed with their own secret from `AUTH_CALLER_SECRETS`, with `iss` (the caller), `aud = helium-backend`, `iat` and `exp`. A token is accepted for at most 5 minutes after `iat`, with 30 seconds of clock tolerance. The admin user the service acts for travels in the signed `act` claim: `{ id, email, roles }`.
+- **Errors:** 401 `AUTH_TOKEN_MISSING`, `AUTH_TOKEN_INVALID` (the reason is logged as `token rejected`, never sent) or `AUTH_TOKEN_EXPIRED`; 403 `PERMISSION_DENIED` with `details.required`.
+- **Permissions** come from the user's roles through the table in `src/common/auth/permissions.ts`. A module adds its permissions there, with the roles that grant them, when it adds routes. A token without a user has no permissions.
+- **Services** receive the `Actor` from the controller as an argument, for permission and audit decisions. They never read the request.
+- **Local calls:** `pnpm dev:token --roles <role,...>` prints a token signed with the local secret from `.env`.
+
+## HTTP
+
+- **Route prefixes by audience** ([ADR-0010](adr/0010-auth-and-access.md)). Module controllers use `@InternalController('campaigns')` from `src/common/http/`, which serves `/internal/v1/campaigns`. Plain `@Controller` is banned in `src/modules` by lint. `/admin/v1` and `/store/v1` are reserved; their decorators are added when those audiences arrive.
+- **Outside the prefixes:** `/health/live`, `/health/ready` and, except in production, `/docs`.
+- **Request bodies:** JSON only, up to 1 MB (`BODY_LIMIT`). Anything larger is 413 `PAYLOAD_TOO_LARGE`; big files go through S3. `req.rawBody` (`RawBodyRequest`) keeps the exact bytes for webhook signature checks.
+- **Browsers:** CORS is off unless `CORS_ORIGINS` lists origins. helmet sets security headers and removes `X-Powered-By`.
+- **Health:**
+    - `live` checks nothing but the process, so a database outage never makes ECS restart healthy containers.
+    - `ready` runs one terminus check per dependency and returns 503 `SERVICE_UNAVAILABLE` when one fails; terminus logs the failing check. A task that adds a dependency (MongoDB, Redis, SQS) adds its check to `HealthController.ready`.
+- **Shutdown:** on SIGTERM the app logs `shutting down`, stops taking connections, lets in-flight requests finish, logs `shutdown complete` and exits. Keep request handlers short (R11): ECS kills a task that hasn't stopped within its stop timeout (30 s by default).
+- **Requests rejected before routing** (a body too large or not valid JSON) are logged as `request rejected`, at warn, because they never reach the access logger.
+
+## Validation and API docs
+
+- **Every route input has a zod schema**, attached to the parameter. The global `SchemaValidationPipe` validates it and the handler receives the parsed value:
+    ```ts
+    const campaignId = z.string().regex(/^[a-f\d]{24}$/, 'Must be a campaign ID.');
+    const createCampaign = z.strictObject({ name: z.string().min(1).max(100), templateId: z.string() });
+
+    @Post()
+    create(@Body({ schema: createCampaign }) body: z.infer<typeof createCampaign>) { ... }
+
+    @Get(':id')
+    get(@Param('id', { schema: campaignId }) id: string) { ... }
+    ```
+    - Types come from the schema with `z.infer`. Never write a separate interface for the same input.
+    - Schemas live next to the controller in `<module>.schemas.ts`.
+- **Objects choose how to treat unknown keys.** `z.strictObject` rejects them; use it for everything we define. `z.looseObject` keeps them; use it only for third-party payloads that grow new fields, such as Meta webhooks. `z.object`, which silently drops them, is banned in `src/modules` by lint.
+- **Query values are text.** Use the helpers in `src/common/validation/query.ts`: `queryInt(rules)`, `queryBoolean()`, `queryCursor()`, and `paginationQuery` (`limit` 1–100, default 20, plus `cursor`), extended with a list's own filters. Don't use `z.coerce`: it reads `''` as `0` and `'false'` as `true`.
+- **Invalid input** is 400 `VALIDATION_FAILED` with `details.fields` keyed by the field's path: `name`, `items.0.phone`. An unknown key gets `Unknown field.`; a problem with the whole value is under `(root)`.
+- **API docs** are generated from the same schemas, with no extra decorators, and served at `/docs` (UI) and `/docs-json` in every environment except production.
+
 ## Rules
 
 | # | Rule | Enforced by |
@@ -119,16 +200,16 @@ See [ADR-0004](adr/0004-project-structure.md) for the full tree.
 | R2 | **Module boundaries:** another module is used only through its `index.ts`. Cross-module side effects go through events or queues. `forwardRef` is banned | Lint `helium/module-boundaries`, `no-restricted-imports` |
 | R3 | **File size:** 400 lines or fewer per file, not counting blank lines and comments. A growing service is split by use case | Lint `max-lines` |
 | R4 | **Types:** strict TypeScript. No `any`, no non-null `!`, no unawaited promises, `===` only. An exception needs an `eslint-disable-next-line` with a reason; unused disables fail lint | tsconfig + typescript-eslint `strictTypeChecked` |
-| R5 | **Validation:** every input is validated with zod: body, query, params, env, queue messages, webhook payloads. Unknown keys are rejected | Validation pipe (*planned, F9*), review |
-| R6 | **Errors:** throw an `AppError` subclass from the module's `*.errors.ts`. Never throw `HttpException` or a bare `Error` from services. Error codes are `SCREAMING_SNAKE_CASE`, unique, and never reused | Lint (*planned, F8*), review |
-| R7 | **Access:** every route declares `@Public()` or `@RequirePermissions(...)`. Routes are denied by default | Global guards + route-coverage test (*planned, F11*) |
+| R5 | **Validation:** every input is validated with zod: body, query, params, env, queue messages, webhook payloads. Unknown keys are rejected (`z.strictObject`), except in third-party payloads (`z.looseObject`). See [Validation and API docs](#validation-and-api-docs) | Global validation pipe (tested); lint bans `z.object` in `src/modules`; review |
+| R6 | **Errors:** throw an `AppError` subclass from the module's `*.errors.ts`. Never throw `HttpException` or a bare `Error` from services. Error codes are `SCREAMING_SNAKE_CASE`, unique, and never reused. See [Errors](#errors) | Lint in `src/modules` (no `*Exception` imports from `@nestjs/common`, no `throw new Error`); review for codes |
+| R7 | **Access:** every route declares `@Public()` or `@RequirePermissions(...)`. Routes are denied by default. See [Authentication and access](#authentication-and-access) | Global guards; route-coverage test |
 | R8 | **Data access:** queries are scoped and indexed. Lists use cursor pagination, never `skip`. Hot paths use `bulkWrite` and `lean()`. Transactions only when a use case needs them, kept short | Review; slow-query log |
 | R9 | **Database writes:** the `main` database is read-only from this backend unless an ADR grants a module write access to specific collections | Database user permissions (*planned, F24*) |
 | R10 | **Idempotency:** queue consumers are idempotent by a natural key. Mutating admin endpoints accept `Idempotency-Key` | Review; F15 interceptor |
 | R11 | **Async work:** nothing slow or external runs inside an HTTP request that the caller waits on. Put it on a queue | Review |
 | R12 | **Config:** inject the typed config of an area (`@Inject(appConfig.KEY) private readonly app: AppConfig`). Never read `process.env` outside `src/config`, and don't use `ConfigService.get('…')` string keys in feature code. See [Configuration](#configuration) | Lint `no-restricted-properties` (`process.env` outside `src/config` and tests) |
 | R13 | **Logging:** use the injected `PinoLogger` with structured fields. Phone numbers are masked with `maskPhone()`; tokens, secrets and message bodies are never logged. See [Logging and request context](#logging-and-request-context) | Redaction of known secret fields, header-free and query-free access logs (tested); review |
-| R14 | **Tests:** unit tests for business rules (`*.spec.ts` next to the code), integration tests against real Mongo, Redis and SQS containers (`*.int-spec.ts` next to the code), and HTTP tests through the real app via `createTestApp()` (`test/*.e2e-spec.ts`). Tests use the same strict lint rules as app code | `pnpm test`, `test:int`, `test:e2e`; CI (*planned, F5*) |
+| R14 | **Tests:** unit tests for business rules (`*.spec.ts` next to the code), integration tests against real Mongo, Redis and SQS containers (`*.int-spec.ts` next to the code), HTTP tests through the real app via `createTestApp()` (`test/*.e2e-spec.ts`), and smoke tests that run the built app as a process for signals and startup (`test/smoke/*.smoke-spec.ts`). Tests use the same strict lint rules as app code | `pnpm test`, `test:int`, `test:e2e`, `test:smoke`; CI |
 | R15 | **Dependencies:** add a library only with a reason in the PR description. Prefer what is already in use. Versions are pinned exactly (`savePrefix: ''`). Dependency install scripts are denied unless listed in `allowBuilds` in `pnpm-workspace.yaml` | Review; pnpm settings |
 | R16 | **ESM imports:** relative imports end in `.js`, even from `.ts` files (`./app.module.js`). Type-only imports use `import type`, except in files with decorators, where the lint rule stands down because NestJS injection needs real imports | TypeScript `nodenext` (compile error); lint `consistent-type-imports` |
 | R17 | **Style and commits:** Prettier formats code (Markdown is hand-formatted). Commit messages follow Conventional Commits. Both are checked on commit by husky (lint-staged and commitlint) and again in CI | `pnpm format:check`, git hooks |
@@ -158,3 +239,8 @@ See [ADR-0004](adr/0004-project-structure.md) for the full tree.
 | 2026-10-29 | CI, Dependabot and branch protection documented; the agent may commit and push task branches (F5) |
 | 2026-10-29 | New Configuration section; R12 enforced by lint (F6) |
 | 2026-10-29 | New Logging and request context section; R13 detailed (F7) |
+| 2026-10-29 | New Errors section; R6 enforced by lint (F8) |
+| 2026-10-29 | New Validation and API docs section; R5 enforced by the pipe and lint (F9) |
+| 2026-10-29 | New HTTP section; smoke tests added to R14 (F10) |
+| 2026-10-29 | Tasks are reviewed in batches of two to four, one branch and PR per batch |
+| 2026-10-29 | New Authentication and access section; R7 enforced (F11) |

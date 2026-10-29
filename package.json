@@ -21,8 +21,10 @@
     "test": "vitest run --project unit",
     "test:int": "vitest run --project int --passWithNoTests",
     "test:e2e": "vitest run --project e2e",
+    "test:smoke": "vitest run --project smoke",
     "test:cov": "vitest run --coverage --passWithNoTests",
     "test:watch": "vitest --project unit",
+    "dev:token": "node scripts/dev-token.ts",
     "prepare": "husky"
   },
   "lint-staged": {
@@ -39,6 +41,10 @@
     "@nestjs/config": "12.0.1",
     "@nestjs/core": "12.3.2",
     "@nestjs/platform-express": "12.3.2",
+    "@nestjs/swagger": "12.0.5",
+    "@nestjs/terminus": "12.1.0",
+    "helmet": "8.3.0",
+    "jose": "6.2.12",
     "nestjs-cls": "7.0.2",
     "nestjs-pino": "5.3.1",
     "pino": "10.4.0",

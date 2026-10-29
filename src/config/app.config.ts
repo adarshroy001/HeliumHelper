@@ -2,6 +2,9 @@ import { registerAs, type ConfigType } from '@nestjs/config';
 import { z } from 'zod';
 import { loadConfig, type RawEnv } from './config.loader.js';
 
+/** A browser origin: scheme and host, optional port, no path. */
+const ORIGIN = /^https?:\/\/[a-z\d.-]+(:\d{1,5})?$/;
+
 /** Variables for the app itself. Every variable here must also appear in `.env.example` (enforced by a test). */
 export const appEnvSchema = z
   .object({
@@ -15,6 +18,17 @@ export const appEnvSchema = z
     LOG_LEVEL: z.enum(['silent', 'fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
     /** Service name shown in logs and metrics. */
     APP_NAME: z.string().min(1).default('helium-backend'),
+    /** Browser origins allowed to call the API, comma-separated. Empty: no browser may call it. */
+    CORS_ORIGINS: z
+      .string()
+      .default('')
+      .transform((value) =>
+        value
+          .split(',')
+          .map((origin) => origin.trim())
+          .filter(Boolean),
+      )
+      .pipe(z.array(z.string().regex(ORIGIN, 'must be an origin such as https://admin.example.com'))),
   })
   .superRefine((env, ctx) => {
     // Deployed environments must run Node in production mode.
@@ -44,6 +58,7 @@ export function parseAppConfig(env: RawEnv) {
     port: vars.PORT,
     logLevel: vars.LOG_LEVEL,
     name: vars.APP_NAME,
+    corsOrigins: vars.CORS_ORIGINS,
     isProduction: vars.APP_ENV === 'production',
   };
 }

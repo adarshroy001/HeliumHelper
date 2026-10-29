@@ -74,3 +74,6 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+      - name: Smoke tests (built app)
+        run: pnpm test:smoke

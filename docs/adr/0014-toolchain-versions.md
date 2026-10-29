@@ -36,7 +36,7 @@ It was tested with Vitest and supertest against a real MongoDB 7 container, then
 | Database | mongoose | 9.11.4 |
 | Validation | zod | 4.6.7 |
 | Logging and context | `nestjs-pino` 5.3.1, `pino` 10.4.0, `pino-http` 11.0.0, `nestjs-cls` 7.0.2 | |
-| Other runtime | `reflect-metadata` 0.2.2, `rxjs` 7.8.2 | |
+| Other runtime | `reflect-metadata` 0.2.2, `rxjs` 7.8.2, `helmet` 8.3.0 (added in F10), `jose` 6.2.12 (added in F11) | |
 | Tests | vitest 5.0.5, supertest 7.3.1, testcontainers and `@testcontainers/mongodb` 12.2.1, image `mongo:7.0` | |
 | Lint and format (F3) | eslint 10.x, typescript-eslint 8.72.x, prettier 3.9.x, husky 9, lint-staged 17, commitlint 21 | |
 
@@ -60,6 +60,7 @@ It was tested with Vitest and supertest against a real MongoDB 7 container, then
     - `z.strictObject` rejects unknown keys. `z.coerce` handles query numbers.
     - No third-party wrapper (`nestjs-zod`) is needed.
 - **OpenAPI:** `SwaggerModule.createDocument(…, { standardSchemaConverter })`, using `z.toJSONSchema(schema, { io, target: 'openapi-3.0' })`. Limits, defaults and `additionalProperties: false` all appear in the generated document.
+    - *Update (F9):* no converter is needed. zod 4.6 implements Standard JSON Schema (`~standard.jsonSchema`), which `@nestjs/swagger` 12 reads directly with `target: 'openapi-3.0'`.
 - **Install-script security:**
     - pnpm 12 blocks dependency install scripts unless they are allowed.
     - `pnpm-workspace.yaml` keeps an explicit `allowBuilds` map.

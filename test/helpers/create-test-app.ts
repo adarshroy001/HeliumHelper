@@ -1,9 +1,10 @@
 import 'reflect-metadata';
 import type { Server } from 'node:http';
-import type { INestApplication, Type } from '@nestjs/common';
+import type { Type } from '@nestjs/common';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test, type TestingModuleBuilder } from '@nestjs/testing';
 import { AppModule } from '../../src/app.module.js';
-import { configureApp } from '../../src/app.setup.js';
+import { APP_OPTIONS, configureApp } from '../../src/app.setup.js';
 
 export interface CreateTestAppOptions {
   /** Root module to boot. Defaults to the real `AppModule`. */
@@ -13,7 +14,7 @@ export interface CreateTestAppOptions {
 }
 
 export interface TestApp {
-  app: INestApplication;
+  app: NestExpressApplication;
   /** The underlying HTTP server, typed for supertest: `request(http)`. */
   http: Server;
 }
@@ -25,8 +26,7 @@ export interface TestApp {
 export async function createTestApp(options: CreateTestAppOptions = {}): Promise<TestApp> {
   const builder = Test.createTestingModule({ imports: [options.module ?? AppModule] });
   const moduleRef = await (options.override ? options.override(builder) : builder).compile();
-  const app = configureApp(moduleRef.createNestApplication({ bufferLogs: true }));
+  const app = configureApp(moduleRef.createNestApplication<NestExpressApplication>(APP_OPTIONS));
   await app.init();
-  // Nest types the server as `any`; with the Express adapter it is a Node HTTP server.
-  return { app, http: app.getHttpServer() as Server };
+  return { app, http: app.getHttpServer() };
 }

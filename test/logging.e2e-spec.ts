@@ -6,8 +6,10 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { AppModule } from '../src/app.module.js';
 import { createTestApp, type TestApp } from './helpers/create-test-app.js';
 import { LogCapture } from './helpers/log-capture.js';
+import { Public } from '../src/common/auth/index.js';
 
 /** Test-only route: logs a structured line and returns the request context's ID. */
+@Public()
 @Controller('probe')
 class ProbeController {
   constructor(

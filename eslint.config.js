@@ -6,6 +6,12 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 import helium from './eslint/helium-plugin.js';
 
+const NO_FORWARD_REF = {
+  name: '@nestjs/common',
+  importNames: ['forwardRef'],
+  message: 'forwardRef hides a circular dependency. Break the cycle with an event or a queue (ADR-0004).',
+};
+
 export default defineConfig(
   { ignores: ['dist/**', 'coverage/**', 'cdk.out/**', 'node_modules/**'] },
 
@@ -32,19 +38,7 @@ export default defineConfig(
       'max-lines': ['error', { max: 400, skipBlankLines: true, skipComments: true }],
       'no-console': 'error',
       eqeqeq: ['error', 'always'],
-      'no-restricted-imports': [
-        'error',
-        {
-          paths: [
-            {
-              name: '@nestjs/common',
-              importNames: ['forwardRef'],
-              message:
-                'forwardRef hides a circular dependency. Break the cycle with an event or a queue (ADR-0004).',
-            },
-          ],
-        },
-      ],
+      'no-restricted-imports': ['error', { paths: [NO_FORWARD_REF] }],
       // Nest modules are empty classes carrying a decorator.
       '@typescript-eslint/no-extraneous-class': ['error', { allowWithDecorator: true }],
       // `import type` for types only. Nest needs real imports for classes used in constructor injection;
@@ -56,6 +50,49 @@ export default defineConfig(
     },
     languageOptions: {
       parserOptions: { emitDecoratorMetadata: true, experimentalDecorators: true },
+    },
+  },
+
+  // Business modules throw AppError subclasses only (R6), choose how objects treat unknown keys (R5) and serve
+  // routes under an audience prefix (ADR-0010).
+  // Tests may use anything.
+  {
+    files: ['src/modules/**/*.ts'],
+    ignores: ['**/*.spec.ts', '**/*.int-spec.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            NO_FORWARD_REF,
+            {
+              name: '@nestjs/common',
+              importNames: ['Controller'],
+              message:
+                'Use InternalController from src/common/http, so routes get their audience prefix (ADR-0010).',
+            },
+          ],
+          patterns: [
+            {
+              group: ['@nestjs/common'],
+              importNamePattern: 'Exception$',
+              message: "Throw an AppError subclass from the module's *.errors.ts instead (R6).",
+            },
+          ],
+        },
+      ],
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "ThrowStatement > :matches(NewExpression, CallExpression)[callee.name='Error']",
+          message: "Throw an AppError subclass from the module's *.errors.ts instead (R6).",
+        },
+        {
+          selector: "CallExpression[callee.object.name='z'][callee.property.name='object']",
+          message:
+            'z.object silently drops unknown keys. Use z.strictObject to reject them, or z.looseObject to keep them (third-party payloads) (R5).',
+        },
+      ],
     },
   },
 
@@ -80,7 +117,7 @@ export default defineConfig(
   // Environment variables are read only in src/config, which validates them (CONVENTIONS R12).
   {
     files: ['**/*.ts'],
-    ignores: ['src/config/**', 'test/**', 'vitest.config.ts'],
+    ignores: ['src/config/**', 'test/**', 'scripts/**', 'vitest.config.ts'],
     rules: {
       'no-restricted-properties': [
         'error',
