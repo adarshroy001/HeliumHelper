@@ -54,6 +54,8 @@ Migrations (F13) are added by that task. Git hooks run lint-staged on commit and
 
 **Logging:** inject `PinoLogger` and call `logger.setContext(MyClass.name)` in the constructor; log `logger.info({ fields }, 'constant message')`. Not `@InjectPinoLogger`. Mask phones with `maskPhone()`. The request ID is `ClsService.getId()`. HTTP tests that assert on logs use `LogCapture` (`test/helpers/log-capture.ts`) and set `LOG_LEVEL=info`.
 
+**Errors:** a module's errors live in `<module>.errors.ts` and extend a common error from `src/common/errors/` (`NotFoundError`, `ConflictError`, ...) with a fixed code and a user-safe message. The global filter renders `{ statusCode, code, message, details?, requestId }`. See CONVENTIONS → Errors.
+
 **Config:** inject a typed area config (`@Inject(appConfig.KEY) private readonly app: AppConfig`). New variables go in the area's zod schema and in `.env.example`; a test checks the two match. See CONVENTIONS → Configuration.
 
 ## Hard rules (summary)

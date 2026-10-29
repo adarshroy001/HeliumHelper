@@ -54,7 +54,7 @@ See [ADR-0004](adr/0004-project-structure.md) for the full tree.
 | `src/` root files | `main.ts` (API start), `app.module.ts` (what the API loads), `app.setup.ts` (global setup shared with HTTP tests) | Business logic; global setup only in `main.ts` |
 | `src/config/` | One zod-validated config file per area | Defaults that are only safe in development, unless checked against the environment |
 | `src/common/` | Code features use directly: errors, auth guards and decorators, validation, small pure utils | Business rules; connections to external systems |
-| `src/infrastructure/` | Connections to the outside world: database, Redis, queues, logger, health | Business rules |
+| `src/infrastructure/` | Connections to the outside world: database, Redis, queues, logger, health, HTTP error responses | Business rules |
 | `src/modules/<name>/` | One business feature: controllers, services, repositories, schemas, DTOs, errors, consumers | Imports of another module's internals |
 | `src/lambdas/` | Small AWS Lambda handlers in plain TypeScript | Anything from `@nestjs/*` |
 | `migrations/` | Ordered MongoDB index and data migrations | Code that runs at app startup |
@@ -111,6 +111,34 @@ See [ADR-0004](adr/0004-project-structure.md) for the full tree.
 
     Known secret field names (`token`, `password`, `secret`, `authorization`, `apiKey` and similar, top level or one level deep) are replaced with `[Redacted]` automatically. That's a safety net, not permission to log them.
 
+## Errors
+
+Every error response has one shape ([ADR-0008](adr/0008-error-contract.md)):
+
+```json
+{ "statusCode": 404, "code": "CAMPAIGN_NOT_FOUND", "message": "Campaign not found.", "details": { "campaignId": "…" }, "requestId": "…" }
+```
+
+- `details` is present only when the error has details. `requestId` equals the `X-Request-Id` response header.
+- **Throwing:** a module defines its errors in `<module>.errors.ts` by extending a common error from `src/common/errors/`, fixing the code and message:
+    ```ts
+    export class CampaignNotFoundError extends NotFoundError {
+      constructor(campaignId: string) {
+        super('CAMPAIGN_NOT_FOUND', 'Campaign not found.', { details: { campaignId } });
+      }
+    }
+    ```
+    - Common errors: `ValidationError` (400 `VALIDATION_FAILED`, `details.fields`), `UnauthorizedError` (401), `ForbiddenError` (403), `NotFoundError` (404), `ConflictError` (409), `RateLimitedError` (429 `RATE_LIMITED`, `details.retryAfterSeconds`).
+    - The message is sent to the client as is: write it for a user, and never put internals in it.
+    - Pass the original error as `cause` when wrapping one. It is logged for 5xx errors, never sent.
+    - `retryable` (default `false`) tells a worker whether to retry. `RateLimitedError` is retryable.
+- **What the client gets** (`src/infrastructure/http/error-response.ts`):
+    - an `AppError`: its own status, code, message and details;
+    - a Nest exception in the 4xx range (unknown route, invalid JSON): its status with a fixed code and message such as `NOT_FOUND` or `BAD_REQUEST`;
+    - anything else: 500 `INTERNAL_ERROR` with a generic message. Nothing about the cause is revealed.
+- **Logging:** a 5xx is logged once, at error level, as the request's access log line with the error and its stack attached. A 4xx is only the warn-level access line.
+- **Startup failures and crashes:** a failed start, an uncaught exception or an unhandled rejection is logged as one `fatal` JSON line, then the process exits with code 1 so the platform restarts it.
+
 ## Rules
 
 | # | Rule | Enforced by |
@@ -120,7 +148,7 @@ See [ADR-0004](adr/0004-project-structure.md) for the full tree.
 | R3 | **File size:** 400 lines or fewer per file, not counting blank lines and comments. A growing service is split by use case | Lint `max-lines` |
 | R4 | **Types:** strict TypeScript. No `any`, no non-null `!`, no unawaited promises, `===` only. An exception needs an `eslint-disable-next-line` with a reason; unused disables fail lint | tsconfig + typescript-eslint `strictTypeChecked` |
 | R5 | **Validation:** every input is validated with zod: body, query, params, env, queue messages, webhook payloads. Unknown keys are rejected | Validation pipe (*planned, F9*), review |
-| R6 | **Errors:** throw an `AppError` subclass from the module's `*.errors.ts`. Never throw `HttpException` or a bare `Error` from services. Error codes are `SCREAMING_SNAKE_CASE`, unique, and never reused | Lint (*planned, F8*), review |
+| R6 | **Errors:** throw an `AppError` subclass from the module's `*.errors.ts`. Never throw `HttpException` or a bare `Error` from services. Error codes are `SCREAMING_SNAKE_CASE`, unique, and never reused. See [Errors](#errors) | Lint in `src/modules` (no `*Exception` imports from `@nestjs/common`, no `throw new Error`); review for codes |
 | R7 | **Access:** every route declares `@Public()` or `@RequirePermissions(...)`. Routes are denied by default | Global guards + route-coverage test (*planned, F11*) |
 | R8 | **Data access:** queries are scoped and indexed. Lists use cursor pagination, never `skip`. Hot paths use `bulkWrite` and `lean()`. Transactions only when a use case needs them, kept short | Review; slow-query log |
 | R9 | **Database writes:** the `main` database is read-only from this backend unless an ADR grants a module write access to specific collections | Database user permissions (*planned, F24*) |
@@ -158,3 +186,4 @@ See [ADR-0004](adr/0004-project-structure.md) for the full tree.
 | 2026-10-29 | CI, Dependabot and branch protection documented; the agent may commit and push task branches (F5) |
 | 2026-10-29 | New Configuration section; R12 enforced by lint (F6) |
 | 2026-10-29 | New Logging and request context section; R13 detailed (F7) |
+| 2026-10-29 | New Errors section; R6 enforced by lint (F8) |
