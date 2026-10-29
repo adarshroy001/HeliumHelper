@@ -33,7 +33,7 @@ The workflow and the Definition of Done for every task are in [CONVENTIONS.md](C
 | F17 | Queue consumer runner and worker process | F16 | In review |
 | F18 | Scheduled jobs | F17 | In review |
 | F19 | Audit log | F12 | In review |
-| F20 | Local development polish | F17 | Not started |
+| F20 | Local development polish | F17 | In review |
 | F21 | Skills and conventions review | F20 | Not started |
 | F22 | Docker image | F17 | Not started |
 | F23 | AWS foundation (CDK) | F22 | Not started |

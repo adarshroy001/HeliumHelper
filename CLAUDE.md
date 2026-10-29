@@ -34,8 +34,9 @@ Run pnpm through Corepack (`corepack pnpm …`), or `corepack enable` once and t
 | Command | Does |
 | --- | --- |
 | `pnpm install` | Install exact versions from the lockfile |
-| `docker compose up -d` | Start local MongoDB (a replica set), Valkey and ElasticMQ for `pnpm dev` |
-| `pnpm dev` | Run the API in watch mode |
+| `pnpm dev` | Start the containers (MongoDB replica set, Valkey, ElasticMQ), migrate, then run the API and the worker in watch mode |
+| `pnpm seed` | Sample data in the local databases (refuses outside `APP_ENV=local`) |
+| `docker compose up -d` / `down` | Start or stop only the containers |
 | `pnpm build` | Compile to `dist/` with `tsc` |
 | `pnpm start` / `pnpm start:worker` | Run the compiled API (`dist/main.js`) or worker (`dist/worker.js`) |
 | `pnpm typecheck` | Type-check without emitting |

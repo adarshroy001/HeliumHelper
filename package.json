@@ -11,7 +11,7 @@
   },
   "scripts": {
     "build": "nest build",
-    "dev": "nest start --watch",
+    "dev": "node scripts/dev.ts",
     "start": "node --enable-source-maps dist/main.js",
     "start:worker": "node --enable-source-maps dist/worker.js",
     "typecheck": "tsc --noEmit -p tsconfig.json",
@@ -30,6 +30,7 @@
     "migrate:status": "nest build && node --enable-source-maps dist/migrate.js status",
     "migrate:create": "nest build && node dist/migrate.js create",
     "schedules:export": "nest build && node dist/export-schedules.js",
+    "seed": "nest build && node dist/seed.js",
     "prepare": "husky"
   },
   "lint-staged": {

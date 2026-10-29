@@ -28,6 +28,7 @@ export default defineConfig({
         'src/worker.ts',
         'src/migrate.ts',
         'src/export-schedules.ts',
+        'src/seed.ts',
       ],
       reporter: ['text', 'html', 'lcov'],
       reportsDirectory: 'coverage',
