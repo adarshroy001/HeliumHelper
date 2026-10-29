@@ -1,4 +1,5 @@
 import {
+  BadGatewayException,
   BadRequestException,
   HttpException,
   NotFoundException,
@@ -54,9 +55,17 @@ describe('toErrorBody', () => {
     });
   });
 
+  it('keeps 503 from a failed readiness check, without its details', () => {
+    expect(toErrorBody(new ServiceUnavailableException({ status: 'error', error: { mongo: {} } }))).toEqual({
+      statusCode: 503,
+      code: 'SERVICE_UNAVAILABLE',
+      message: 'The service is not ready. Try again later.',
+    });
+  });
+
   it('turns everything else into INTERNAL_ERROR', () => {
     expect(toErrorBody(new Error('password=hunter2 at db.internal'))).toEqual(INTERNAL);
-    expect(toErrorBody(new ServiceUnavailableException('pool exhausted'))).toEqual(INTERNAL);
+    expect(toErrorBody(new BadGatewayException('upstream said no'))).toEqual(INTERNAL);
     expect(toErrorBody('a thrown string')).toEqual(INTERNAL);
     expect(toErrorBody(undefined)).toEqual(INTERNAL);
   });

@@ -29,12 +29,14 @@ const NEST_ERRORS: Readonly<Partial<Record<number, readonly [code: string, messa
   413: ['PAYLOAD_TOO_LARGE', 'The request body is too large.'],
   415: ['UNSUPPORTED_MEDIA_TYPE', 'This content type is not supported.'],
   429: ['RATE_LIMITED', 'Too many requests. Try again later.'],
+  // A failed readiness check (terminus).
+  503: ['SERVICE_UNAVAILABLE', 'The service is not ready. Try again later.'],
 };
 
 /**
  * Maps anything thrown during a request to the error contract:
  * - an `AppError` keeps its status, code, message and details;
- * - a Nest `HttpException` in the 4xx range keeps its status with a fixed code and message;
+ * - a Nest `HttpException` in the 4xx range, or a 503, keeps its status with a fixed code and message;
  * - anything else is a 500 `INTERNAL_ERROR` that reveals nothing about the cause.
  */
 export function toErrorBody(exception: unknown): ErrorBody {
@@ -45,12 +47,10 @@ export function toErrorBody(exception: unknown): ErrorBody {
 
   if (exception instanceof HttpException) {
     const statusCode = exception.getStatus();
+    const known = NEST_ERRORS[statusCode];
+    if (known) return { statusCode, code: known[0], message: known[1] };
     if (statusCode >= 400 && statusCode < 500) {
-      const [code, message] = NEST_ERRORS[statusCode] ?? [
-        'REQUEST_FAILED',
-        'The request could not be processed.',
-      ];
-      return { statusCode, code, message };
+      return { statusCode, code: 'REQUEST_FAILED', message: 'The request could not be processed.' };
     }
   }
 
