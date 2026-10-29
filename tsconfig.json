@@ -22,5 +22,5 @@
     "noEmit": true,
     "skipLibCheck": true
   },
-  "include": ["src", "test", "eslint", "vitest.config.ts"]
+  "include": ["src", "test", "eslint", "scripts", "vitest.config.ts"]
 }

@@ -8,10 +8,12 @@ import { AppModule } from '../src/app.module.js';
 import { InternalController } from '../src/common/http/index.js';
 import { createTestApp, type TestApp } from './helpers/create-test-app.js';
 import { LogCapture } from './helpers/log-capture.js';
+import { Public } from '../src/common/auth/index.js';
 
 const anyObject = z.looseObject({});
 
 /** Test-only routes for the HTTP layer. */
+@Public()
 @InternalController('things')
 class ThingsController {
   @Get()

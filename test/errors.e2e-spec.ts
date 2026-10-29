@@ -5,6 +5,7 @@ import { AppModule } from '../src/app.module.js';
 import { NotFoundError, RateLimitedError, ValidationError } from '../src/common/errors/index.js';
 import { createTestApp, type TestApp } from './helpers/create-test-app.js';
 import { LogCapture, type LogLine } from './helpers/log-capture.js';
+import { Public } from '../src/common/auth/index.js';
 
 class ThingNotFoundError extends NotFoundError {
   constructor(thingId: string) {
@@ -13,6 +14,7 @@ class ThingNotFoundError extends NotFoundError {
 }
 
 /** Test-only routes that fail in each way the error contract covers. */
+@Public()
 @Controller('fail')
 class FailController {
   @Get('domain')

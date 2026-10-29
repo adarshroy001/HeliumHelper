@@ -139,6 +139,27 @@ Every error response has one shape ([ADR-0008](adr/0008-error-contract.md)):
 - **Logging:** a 5xx is logged once, at error level, as the request's access log line with the error and its stack attached. A 4xx is only the warn-level access line.
 - **Startup failures and crashes:** a failed start, an uncaught exception or an unhandled rejection is logged as one `fatal` JSON line, then the process exits with code 1 so the platform restarts it.
 
+## Authentication and access
+
+- **Deny by default** ([ADR-0010](adr/0010-auth-and-access.md)). Two global guards run on every route: `AuthGuard` checks the token, `PermissionsGuard` checks the route's access decision. Every route declares one:
+    ```ts
+    @InternalController('campaigns')
+    export class CampaignsController {
+      @Get()
+      @RequirePermissions('campaigns:read')
+      list(@CurrentActor() actor: Actor) { ... }
+    }
+    ```
+    - `@Public()`: no token needed (health checks). Use it rarely.
+    - `@RequirePermissions('<area>:<action>', ...)`: a valid token whose user holds every listed permission.
+    - On a controller, either applies to all its routes; a route can override it.
+    - A route with neither is refused with 403 `ACCESS_NOT_DECLARED`, and the route-coverage test (`test/route-access.e2e-spec.ts`) fails CI.
+- **Tokens:** callers send `Authorization: Bearer <JWT>`, HS256, signed with their own secret from `AUTH_CALLER_SECRETS`, with `iss` (the caller), `aud = helium-backend`, `iat` and `exp`. A token is accepted for at most 5 minutes after `iat`, with 30 seconds of clock tolerance. The admin user the service acts for travels in the signed `act` claim: `{ id, email, roles }`.
+- **Errors:** 401 `AUTH_TOKEN_MISSING`, `AUTH_TOKEN_INVALID` (the reason is logged as `token rejected`, never sent) or `AUTH_TOKEN_EXPIRED`; 403 `PERMISSION_DENIED` with `details.required`.
+- **Permissions** come from the user's roles through the table in `src/common/auth/permissions.ts`. A module adds its permissions there, with the roles that grant them, when it adds routes. A token without a user has no permissions.
+- **Services** receive the `Actor` from the controller as an argument, for permission and audit decisions. They never read the request.
+- **Local calls:** `pnpm dev:token --roles <role,...>` prints a token signed with the local secret from `.env`.
+
 ## HTTP
 
 - **Route prefixes by audience** ([ADR-0010](adr/0010-auth-and-access.md)). Module controllers use `@InternalController('campaigns')` from `src/common/http/`, which serves `/internal/v1/campaigns`. Plain `@Controller` is banned in `src/modules` by lint. `/admin/v1` and `/store/v1` are reserved; their decorators are added when those audiences arrive.
@@ -181,7 +202,7 @@ Every error response has one shape ([ADR-0008](adr/0008-error-contract.md)):
 | R4 | **Types:** strict TypeScript. No `any`, no non-null `!`, no unawaited promises, `===` only. An exception needs an `eslint-disable-next-line` with a reason; unused disables fail lint | tsconfig + typescript-eslint `strictTypeChecked` |
 | R5 | **Validation:** every input is validated with zod: body, query, params, env, queue messages, webhook payloads. Unknown keys are rejected (`z.strictObject`), except in third-party payloads (`z.looseObject`). See [Validation and API docs](#validation-and-api-docs) | Global validation pipe (tested); lint bans `z.object` in `src/modules`; review |
 | R6 | **Errors:** throw an `AppError` subclass from the module's `*.errors.ts`. Never throw `HttpException` or a bare `Error` from services. Error codes are `SCREAMING_SNAKE_CASE`, unique, and never reused. See [Errors](#errors) | Lint in `src/modules` (no `*Exception` imports from `@nestjs/common`, no `throw new Error`); review for codes |
-| R7 | **Access:** every route declares `@Public()` or `@RequirePermissions(...)`. Routes are denied by default | Global guards + route-coverage test (*planned, F11*) |
+| R7 | **Access:** every route declares `@Public()` or `@RequirePermissions(...)`. Routes are denied by default. See [Authentication and access](#authentication-and-access) | Global guards; route-coverage test |
 | R8 | **Data access:** queries are scoped and indexed. Lists use cursor pagination, never `skip`. Hot paths use `bulkWrite` and `lean()`. Transactions only when a use case needs them, kept short | Review; slow-query log |
 | R9 | **Database writes:** the `main` database is read-only from this backend unless an ADR grants a module write access to specific collections | Database user permissions (*planned, F24*) |
 | R10 | **Idempotency:** queue consumers are idempotent by a natural key. Mutating admin endpoints accept `Idempotency-Key` | Review; F15 interceptor |
@@ -222,3 +243,4 @@ Every error response has one shape ([ADR-0008](adr/0008-error-contract.md)):
 | 2026-10-29 | New Validation and API docs section; R5 enforced by the pipe and lint (F9) |
 | 2026-10-29 | New HTTP section; smoke tests added to R14 (F10) |
 | 2026-10-29 | Tasks are reviewed in batches of two to four, one branch and PR per batch |
+| 2026-10-29 | New Authentication and access section; R7 enforced (F11) |

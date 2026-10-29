@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { AppModule } from '../src/app.module.js';
 import { paginationQuery, queryBoolean } from '../src/common/validation/index.js';
 import { createTestApp, type TestApp } from './helpers/create-test-app.js';
+import { Public } from '../src/common/auth/index.js';
 
 const createThing = z.strictObject({
   name: z.string().min(1).max(50),
@@ -14,6 +15,7 @@ const createThing = z.strictObject({
 const listThings = paginationQuery.extend({ archived: queryBoolean().optional() });
 
 /** Test-only routes with the three kinds of validated input. */
+@Public()
 @Controller('things')
 class ThingsController {
   @Post()

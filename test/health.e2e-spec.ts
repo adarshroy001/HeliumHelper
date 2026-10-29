@@ -4,8 +4,10 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module.js';
 import { createTestApp, type TestApp } from './helpers/create-test-app.js';
+import { Public } from '../src/common/auth/index.js';
 
 /** Test-only readiness route with a dependency that is down, as F12+ checks will report it. */
+@Public()
 @Controller('probe-health')
 class FailingHealthController {
   constructor(

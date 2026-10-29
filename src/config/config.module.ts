@@ -1,9 +1,10 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule as NestConfigModule } from '@nestjs/config';
 import { appConfig } from './app.config.js';
+import { authConfig } from './auth.config.js';
 
 /** Every config area. Add a new area's `registerAs(...)` here and its schema to `CONFIG_SCHEMAS`. */
-export const CONFIG_AREAS = [appConfig];
+export const CONFIG_AREAS = [appConfig, authConfig];
 
 /**
  * Loads `.env.local` then `.env` for local development (real environment variables win),
