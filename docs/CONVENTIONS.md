@@ -42,6 +42,8 @@ If the code and this document disagree, fix one of them in the same PR. Never le
     2. Require status checks to pass: `check`. Require the branch to be up to date before merging.
     3. Require conversation resolution before merging.
     4. Block force pushes and deletions.
+    5. Under General → Pull Requests, allow **squash merging only**, with the default commit message set to the pull request title.
+- **One task, one squash commit on `main`.** The PR title becomes that commit's message, so it must be a Conventional Commit, for example `feat(config): typed config with startup validation (F6)`. CI checks commit messages on `main`, so a bad title fails there.
 
 ## Project structure
 
