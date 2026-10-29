@@ -160,6 +160,20 @@ Every error response has one shape ([ADR-0008](adr/0008-error-contract.md)):
 - **Services** receive the `Actor` from the controller as an argument, for permission and audit decisions. They never read the request.
 - **Local calls:** `pnpm dev:token --roles <role,...>` prints a token signed with the local secret from `.env`.
 
+## Database
+
+- **Connections** ([ADR-0005](adr/0005-database.md)): `DB.main` (today's Helium database, read-only user) and `DB.messaging`, from `src/infrastructure/database/`. A module registers its models on one: `MongooseModule.forFeature([{ name: Campaign.name, schema: CampaignSchema }], DB.messaging)`, and its repository injects them with `@InjectModel(Campaign.name, DB.messaging)`.
+- **Repositories** are the only code that touches Mongoose (R1). One repository per collection, in the owning module.
+    - Reads use `.lean()` and return plain objects.
+    - Lists use `findPage(model, filter, { limit, cursor })`: newest first by `_id`, cursor-based, never `skip`. The filter needs an index ending in `_id`, such as `{ status: 1, _id: -1 }`. Its `limit`/`cursor` come straight from `paginationQuery`.
+    - Writes that must succeed or fail together use `withTransaction(connection, async (session) => ...)`, passing `session` to every operation. Only when a use case needs it; keep it short and free of calls to other services.
+- **Settings that protect us:**
+    - A filter on a field the schema doesn't define throws (`strictQuery: 'throw'`), instead of being dropped and matching everything.
+    - `retryWrites` is off everywhere, as DocumentDB requires.
+    - Indexes and collections are created from schemas only on a developer's machine (`APP_ENV=local`). Everywhere else they come from migrations (F13).
+    - A database that can't be reached at startup fails the start; `/health/ready` pings both connections.
+- **Locally:** `docker compose up -d` starts a MongoDB 7 replica set matching `.env.example`. Tests start their own container (`test/global-setup.ts`); integration tests take a fresh database each from `connectTestDatabase()` (`test/helpers/mongo.ts`).
+
 ## HTTP
 
 - **Route prefixes by audience** ([ADR-0010](adr/0010-auth-and-access.md)). Module controllers use `@InternalController('campaigns')` from `src/common/http/`, which serves `/internal/v1/campaigns`. Plain `@Controller` is banned in `src/modules` by lint. `/admin/v1` and `/store/v1` are reserved; their decorators are added when those audiences arrive.
@@ -203,7 +217,7 @@ Every error response has one shape ([ADR-0008](adr/0008-error-contract.md)):
 | R5 | **Validation:** every input is validated with zod: body, query, params, env, queue messages, webhook payloads. Unknown keys are rejected (`z.strictObject`), except in third-party payloads (`z.looseObject`). See [Validation and API docs](#validation-and-api-docs) | Global validation pipe (tested); lint bans `z.object` in `src/modules`; review |
 | R6 | **Errors:** throw an `AppError` subclass from the module's `*.errors.ts`. Never throw `HttpException` or a bare `Error` from services. Error codes are `SCREAMING_SNAKE_CASE`, unique, and never reused. See [Errors](#errors) | Lint in `src/modules` (no `*Exception` imports from `@nestjs/common`, no `throw new Error`); review for codes |
 | R7 | **Access:** every route declares `@Public()` or `@RequirePermissions(...)`. Routes are denied by default. See [Authentication and access](#authentication-and-access) | Global guards; route-coverage test |
-| R8 | **Data access:** queries are scoped and indexed. Lists use cursor pagination, never `skip`. Hot paths use `bulkWrite` and `lean()`. Transactions only when a use case needs them, kept short | Review; slow-query log |
+| R8 | **Data access:** queries are scoped and indexed. Lists use cursor pagination, never `skip`. Hot paths use `bulkWrite` and `lean()`. Transactions only when a use case needs them, kept short. See [Database](#database) | `findPage` and `withTransaction` helpers; `strictQuery: 'throw'`; review |
 | R9 | **Database writes:** the `main` database is read-only from this backend unless an ADR grants a module write access to specific collections | Database user permissions (*planned, F24*) |
 | R10 | **Idempotency:** queue consumers are idempotent by a natural key. Mutating admin endpoints accept `Idempotency-Key` | Review; F15 interceptor |
 | R11 | **Async work:** nothing slow or external runs inside an HTTP request that the caller waits on. Put it on a queue | Review |
@@ -244,3 +258,4 @@ Every error response has one shape ([ADR-0008](adr/0008-error-contract.md)):
 | 2026-10-29 | New HTTP section; smoke tests added to R14 (F10) |
 | 2026-10-29 | Tasks are reviewed in batches of two to four, one branch and PR per batch |
 | 2026-10-29 | New Authentication and access section; R7 enforced (F11) |
+| 2026-10-29 | New Database section; R8 helpers (F12) |

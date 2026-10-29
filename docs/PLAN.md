@@ -25,7 +25,7 @@ The workflow and the Definition of Done for every task are in [CONVENTIONS.md](C
 | F9 | Validation and API docs | F8 | Done |
 | F10 | HTTP setup and health | F9 | Done |
 | F11 | Authentication and access control | F10 | In review |
-| F12 | MongoDB connections and repositories | F10 | In progress |
+| F12 | MongoDB connections and repositories | F10 | In review |
 | F13 | Migrations | F12 | In progress |
 | F14 | Redis | F10 | Not started |
 | F15 | Rate limiting and idempotency | F11, F14 | Not started |

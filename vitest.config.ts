@@ -3,7 +3,7 @@ import { defineConfig } from 'vitest/config';
 /**
  * Three kinds of test (ADR-0012), one project each:
  * - unit:        next to the code, no I/O
- * - integration: next to the code, real MongoDB / Valkey / ElasticMQ in containers (from F12)
+ * - integration: next to the code, real MongoDB / Valkey / ElasticMQ in containers (test/global-setup.ts)
  * - e2e:         whole HTTP requests through the real app, in test/
  * - smoke:       the built app (dist/) as a real process: signals, startup failures. Needs `pnpm build`.
  */
@@ -35,6 +35,7 @@ export default defineConfig({
         test: {
           name: 'int',
           include: ['src/**/*.int-spec.ts'],
+          globalSetup: ['test/global-setup.ts'],
           testTimeout: 30_000,
           hookTimeout: 180_000,
         },
@@ -44,13 +45,20 @@ export default defineConfig({
         test: {
           name: 'e2e',
           include: ['test/**/*.e2e-spec.ts'],
+          globalSetup: ['test/global-setup.ts'],
           testTimeout: 30_000,
           hookTimeout: 180_000,
         },
       },
       {
         extends: true,
-        test: { name: 'smoke', include: ['test/smoke/**/*.smoke-spec.ts'], testTimeout: 30_000 },
+        test: {
+          name: 'smoke',
+          include: ['test/smoke/**/*.smoke-spec.ts'],
+          globalSetup: ['test/global-setup.ts'],
+          testTimeout: 30_000,
+          hookTimeout: 180_000,
+        },
       },
     ],
   },

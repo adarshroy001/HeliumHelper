@@ -46,7 +46,11 @@ describe('health checks', () => {
     const res = await request(t.http).get('/health/ready');
 
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ status: 'ok', info: {}, error: {}, details: {} });
+    expect(res.body).toMatchObject({
+      status: 'ok',
+      info: { mongoMain: { status: 'up' }, mongoMessaging: { status: 'up' } },
+      error: {},
+    });
   });
 
   it('returns 503 SERVICE_UNAVAILABLE, without dependency details, when a check fails', async () => {
