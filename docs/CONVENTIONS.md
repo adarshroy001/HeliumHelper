@@ -139,6 +139,18 @@ Every error response has one shape ([ADR-0008](adr/0008-error-contract.md)):
 - **Logging:** a 5xx is logged once, at error level, as the request's access log line with the error and its stack attached. A 4xx is only the warn-level access line.
 - **Startup failures and crashes:** a failed start, an uncaught exception or an unhandled rejection is logged as one `fatal` JSON line, then the process exits with code 1 so the platform restarts it.
 
+## HTTP
+
+- **Route prefixes by audience** ([ADR-0010](adr/0010-auth-and-access.md)). Module controllers use `@InternalController('campaigns')` from `src/common/http/`, which serves `/internal/v1/campaigns`. Plain `@Controller` is banned in `src/modules` by lint. `/admin/v1` and `/store/v1` are reserved; their decorators are added when those audiences arrive.
+- **Outside the prefixes:** `/health/live`, `/health/ready` and, except in production, `/docs`.
+- **Request bodies:** JSON only, up to 1 MB (`BODY_LIMIT`). Anything larger is 413 `PAYLOAD_TOO_LARGE`; big files go through S3. `req.rawBody` (`RawBodyRequest`) keeps the exact bytes for webhook signature checks.
+- **Browsers:** CORS is off unless `CORS_ORIGINS` lists origins. helmet sets security headers and removes `X-Powered-By`.
+- **Health:**
+    - `live` checks nothing but the process, so a database outage never makes ECS restart healthy containers.
+    - `ready` runs one terminus check per dependency and returns 503 `SERVICE_UNAVAILABLE` when one fails; terminus logs the failing check. A task that adds a dependency (MongoDB, Redis, SQS) adds its check to `HealthController.ready`.
+- **Shutdown:** on SIGTERM the app logs `shutting down`, stops taking connections, lets in-flight requests finish, logs `shutdown complete` and exits. Keep request handlers short (R11): ECS kills a task that hasn't stopped within its stop timeout (30 s by default).
+- **Requests rejected before routing** (a body too large or not valid JSON) are logged as `request rejected`, at warn, because they never reach the access logger.
+
 ## Validation and API docs
 
 - **Every route input has a zod schema**, attached to the parameter. The global `SchemaValidationPipe` validates it and the handler receives the parsed value:
@@ -176,7 +188,7 @@ Every error response has one shape ([ADR-0008](adr/0008-error-contract.md)):
 | R11 | **Async work:** nothing slow or external runs inside an HTTP request that the caller waits on. Put it on a queue | Review |
 | R12 | **Config:** inject the typed config of an area (`@Inject(appConfig.KEY) private readonly app: AppConfig`). Never read `process.env` outside `src/config`, and don't use `ConfigService.get('…')` string keys in feature code. See [Configuration](#configuration) | Lint `no-restricted-properties` (`process.env` outside `src/config` and tests) |
 | R13 | **Logging:** use the injected `PinoLogger` with structured fields. Phone numbers are masked with `maskPhone()`; tokens, secrets and message bodies are never logged. See [Logging and request context](#logging-and-request-context) | Redaction of known secret fields, header-free and query-free access logs (tested); review |
-| R14 | **Tests:** unit tests for business rules (`*.spec.ts` next to the code), integration tests against real Mongo, Redis and SQS containers (`*.int-spec.ts` next to the code), and HTTP tests through the real app via `createTestApp()` (`test/*.e2e-spec.ts`). Tests use the same strict lint rules as app code | `pnpm test`, `test:int`, `test:e2e`; CI (*planned, F5*) |
+| R14 | **Tests:** unit tests for business rules (`*.spec.ts` next to the code), integration tests against real Mongo, Redis and SQS containers (`*.int-spec.ts` next to the code), HTTP tests through the real app via `createTestApp()` (`test/*.e2e-spec.ts`), and smoke tests that run the built app as a process for signals and startup (`test/smoke/*.smoke-spec.ts`). Tests use the same strict lint rules as app code | `pnpm test`, `test:int`, `test:e2e`, `test:smoke`; CI |
 | R15 | **Dependencies:** add a library only with a reason in the PR description. Prefer what is already in use. Versions are pinned exactly (`savePrefix: ''`). Dependency install scripts are denied unless listed in `allowBuilds` in `pnpm-workspace.yaml` | Review; pnpm settings |
 | R16 | **ESM imports:** relative imports end in `.js`, even from `.ts` files (`./app.module.js`). Type-only imports use `import type`, except in files with decorators, where the lint rule stands down because NestJS injection needs real imports | TypeScript `nodenext` (compile error); lint `consistent-type-imports` |
 | R17 | **Style and commits:** Prettier formats code (Markdown is hand-formatted). Commit messages follow Conventional Commits. Both are checked on commit by husky (lint-staged and commitlint) and again in CI | `pnpm format:check`, git hooks |
@@ -208,3 +220,4 @@ Every error response has one shape ([ADR-0008](adr/0008-error-contract.md)):
 | 2026-10-29 | New Logging and request context section; R13 detailed (F7) |
 | 2026-10-29 | New Errors section; R6 enforced by lint (F8) |
 | 2026-10-29 | New Validation and API docs section; R5 enforced by the pipe and lint (F9) |
+| 2026-10-29 | New HTTP section; smoke tests added to R14 (F10) |
