@@ -16,6 +16,7 @@ Helium's backend: a NestJS modular monolith for APIs, background workers and int
 ```bash
 corepack enable          # once per machine; or prefix each command with `corepack`
 pnpm install
+cp .env.example .env     # local settings; the app refuses to start if any value is invalid
 pnpm dev                 # API on http://localhost:3000
 curl http://localhost:3000/health/live
 ```

@@ -61,6 +61,25 @@ See [ADR-0004](adr/0004-project-structure.md) for the full tree.
 | `test/` | HTTP end-to-end tests and shared test helpers | Unit tests (those sit next to the code) |
 | `deploy/` | AWS CDK | Application code |
 
+## Configuration
+
+- **One file per area** in `src/config/`, such as `app.config.ts`. Each holds:
+    - a zod schema of that area's environment variables, with a short comment per variable;
+    - a `parse…Config(env)` function that turns the validated variables into a typed object with friendly names (`port`, not `PORT`);
+    - `registerAs('<area>', () => parse…Config(process.env))` and its exported type.
+- **Validated at startup.** Every area is checked when the app starts. Any invalid or missing value stops startup with exit code 1, and the message lists every problem in that area.
+- **`NODE_ENV` vs `APP_ENV`.**
+    - `NODE_ENV` (`development` | `test` | `production`) controls how Node and libraries behave.
+    - `APP_ENV` (`local` | `staging` | `production`) says which deployment is running. Staging runs with `NODE_ENV=production` and `APP_ENV=staging`.
+    - Decide environment-specific behaviour on `APP_ENV`, for example `appConfig.isProduction`.
+- **Production safety lives in the schema** (`superRefine`). Examples: a deployed environment must run `NODE_ENV=production`, and production refuses `debug` logging.
+- **Env files.** Locally, `.env.local` then `.env` are read; real environment variables win. Tests never read env files. Vitest sets a minimal valid environment in `vitest.config.ts`.
+- **Adding a variable or area:**
+    1. Add it to the area's schema, or create a new area file.
+    2. Register a new area in `CONFIG_AREAS` (`config.module.ts`) and `CONFIG_SCHEMAS` (`index.ts`).
+    3. Add it to `.env.example` with a comment. A test fails if `.env.example` and the schemas disagree.
+    4. Add tests for its validation rules.
+
 ## Rules
 
 | # | Rule | Enforced by |
@@ -76,7 +95,7 @@ See [ADR-0004](adr/0004-project-structure.md) for the full tree.
 | R9 | **Database writes:** the `main` database is read-only from this backend unless an ADR grants a module write access to specific collections | Database user permissions (*planned, F24*) |
 | R10 | **Idempotency:** queue consumers are idempotent by a natural key. Mutating admin endpoints accept `Idempotency-Key` | Review; F15 interceptor |
 | R11 | **Async work:** nothing slow or external runs inside an HTTP request that the caller waits on. Put it on a queue | Review |
-| R12 | **Config:** read only through the typed config accessors. Never read `process.env` in feature code | Lint (*planned, F6*) |
+| R12 | **Config:** inject the typed config of an area (`@Inject(appConfig.KEY) private readonly app: AppConfig`). Never read `process.env` outside `src/config`, and don't use `ConfigService.get('…')` string keys in feature code. See [Configuration](#configuration) | Lint `no-restricted-properties` (`process.env` outside `src/config` and tests) |
 | R13 | **Logging:** use the injected pino logger with structured fields. Phone numbers are masked; tokens, secrets and message bodies are never logged | Redaction config (*planned, F7*), review |
 | R14 | **Tests:** unit tests for business rules (`*.spec.ts` next to the code), integration tests against real Mongo, Redis and SQS containers (`*.int-spec.ts` next to the code), and HTTP tests through the real app via `createTestApp()` (`test/*.e2e-spec.ts`). Tests use the same strict lint rules as app code | `pnpm test`, `test:int`, `test:e2e`; CI (*planned, F5*) |
 | R15 | **Dependencies:** add a library only with a reason in the PR description. Prefer what is already in use. Versions are pinned exactly (`savePrefix: ''`). Dependency install scripts are denied unless listed in `allowBuilds` in `pnpm-workspace.yaml` | Review; pnpm settings |
@@ -106,3 +125,4 @@ See [ADR-0004](adr/0004-project-structure.md) for the full tree.
 | 2026-10-28 | R1–R4 and R16 enforced by lint, with folder import rules spelled out in R1; new R17 on style and commits (F3) |
 | 2026-10-28 | R14 gives test file locations and `createTestApp()`; `app.setup.ts` added to the structure table (F4) |
 | 2026-10-29 | CI, Dependabot and branch protection documented; the agent may commit and push task branches (F5) |
+| 2026-10-29 | New Configuration section; R12 enforced by lint (F6) |

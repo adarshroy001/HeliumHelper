@@ -52,6 +52,8 @@ Migrations (F13) are added by that task. Git hooks run lint-staged on commit and
 - HTTP tests boot the real app with `createTestApp()` from `test/helpers/create-test-app.ts`, then call `request(t.http)`. It applies the same `configureApp()` as `main.ts`.
 - Global app setup goes in `src/app.setup.ts`, never only in `main.ts`, so tests run what production runs.
 
+**Config:** inject a typed area config (`@Inject(appConfig.KEY) private readonly app: AppConfig`). New variables go in the area's zod schema and in `.env.example`; a test checks the two match. See CONVENTIONS → Configuration.
+
 ## Hard rules (summary)
 
 - Layers: controller → service → repository. Only repositories touch Mongoose.

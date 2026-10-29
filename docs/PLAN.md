@@ -18,8 +18,8 @@ The workflow and the Definition of Done for every task are in [CONVENTIONS.md](C
 | F2 | Project scaffold | F1 | Done |
 | F3 | Lint, format and git hooks | F2 | Done |
 | F4 | Test setup | F2 | Done |
-| F5 | CI pipeline and repo hygiene | F3, F4 | In review |
-| F6 | Config | F5 | Not started |
+| F5 | CI pipeline and repo hygiene | F3, F4 | Done (PR #1 awaiting merge) |
+| F6 | Config | F5 | In review |
 | F7 | Logging and request context | F6 | Not started |
 | F8 | Error handling | F7 | Not started |
 | F9 | Validation and API docs | F8 | Not started |
@@ -160,7 +160,7 @@ Every foundation task follows the same rules:
     - Common errors: `NotFoundError`, `ConflictError`, `ForbiddenError`, `UnauthorizedError`, `ValidationError`, `RateLimitedError`.
     - A global exception filter producing `{ statusCode, code, message, details?, requestId }`. Only 5xx errors are logged at error level, and unknown errors never leak their internals.
     - Nest's built-in exceptions are mapped to the same shape.
-    - Startup failures exit with code 1.
+    - Startup failures exit with code 1 and are logged **once**. Today Nest's `ExceptionHandler` and our bootstrap handler both log an invalid config (seen in F6).
     - Process-level handlers for `unhandledRejection` and `uncaughtException`: log, then exit.
 - **Done when:** HTTP tests cover a domain error, an unknown error, Nest's own 404, and validation and rate-limit shapes.
 
