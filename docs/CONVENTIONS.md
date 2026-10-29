@@ -220,6 +220,21 @@ Every error response has one shape ([ADR-0008](adr/0008-error-contract.md)):
     - If Redis is down, requests that carry a key are refused with 503 `IDEMPOTENCY_UNAVAILABLE`: running them could run them twice. Requests without a key run normally.
     - A request that crashes mid-way blocks its key for 5 minutes, then a retry runs it again. Handlers must still tolerate a rare repeat.
 
+## Queues
+
+- **Background work goes through SQS** ([ADR-0006](adr/0006-async-work.md)); nothing slow runs inside a request (R11).
+- **Message types** are declared once, in the owning module, and used by both the producer and the consumer:
+    ```ts
+    export const deliverySend = defineMessage('wa.delivery.send', z.strictObject({ deliveryId: z.string() }));
+    ```
+    The type name is `{domain}.{noun}.{verb}`.
+- **Publishing:** inject `QueuePublisher` and call `publish(queue, type, data, { groupId?, delaySeconds? })` or `publishBatch(queue, type, items)`. `queue` is the short name (`wa-send`); `SQS_QUEUE_URL_PREFIX` + name is the URL.
+    - Every message is wrapped in the envelope `{ v, id, type, ts, producer, correlationId, data }`. The envelope and the data are validated first: an invalid message throws `InvalidMessageError` and, in a batch, nothing is sent.
+    - `correlationId` is the request ID (or, in a consumer, the incoming message's), so logs follow work across processes.
+    - Batches go ten per request. Entries SQS fails on its side are retried three times; any message still unsent, or rejected as our fault, throws `QueuePublishError`.
+    - FIFO queues (`.fifo`) need `groupId` and get the envelope `id` as deduplication id. On standard queues `groupId` makes them fair queues (per tenant), when `SQS_FAIR_QUEUES` is on.
+- **Locally:** ElasticMQ in docker-compose; queues are declared in `docker/elasticmq.conf`. Tests create their own queues with `createTestQueue()` (`test/helpers/sqs.ts`).
+
 ## HTTP
 
 - **Route prefixes by audience** ([ADR-0010](adr/0010-auth-and-access.md)). Module controllers use `@InternalController('campaigns')` from `src/common/http/`, which serves `/internal/v1/campaigns`. Plain `@Controller` is banned in `src/modules` by lint. `/admin/v1` and `/store/v1` are reserved; their decorators are added when those audiences arrive.
@@ -308,3 +323,4 @@ Every error response has one shape ([ADR-0008](adr/0008-error-contract.md)):
 | 2026-10-29 | New Migrations section; migrations live in `src/migrations/` (F13) |
 | 2026-10-29 | New Redis section (F14) |
 | 2026-10-29 | New Rate limits and idempotency section; R10 enforced by `@Idempotent()` (F15) |
+| 2026-10-29 | New Queues section (F16) |

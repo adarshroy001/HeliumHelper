@@ -27,9 +27,9 @@ The workflow and the Definition of Done for every task are in [CONVENTIONS.md](C
 | F11 | Authentication and access control | F10 | In review |
 | F12 | MongoDB connections and repositories | F10 | In review |
 | F13 | Migrations | F12 | In review |
-| F14 | Redis | F10 | In review |
-| F15 | Rate limiting and idempotency | F11, F14 | In review |
-| F16 | Queue publisher | F10 | In progress |
+| F14 | Redis | F10 | Done |
+| F15 | Rate limiting and idempotency | F11, F14 | Done |
+| F16 | Queue publisher | F10 | Done |
 | F17 | Queue consumer runner and worker process | F16 | Not started |
 | F18 | Scheduled jobs | F17 | Not started |
 | F19 | Audit log | F12 | Not started |

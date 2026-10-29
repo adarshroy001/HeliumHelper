@@ -1,4 +1,4 @@
-# Local dependencies for `pnpm dev`: MongoDB and Valkey (Redis). Start with `docker compose up -d`; the URIs in .env.example point here.
+# Local dependencies for `pnpm dev`: MongoDB, Valkey (Redis) and ElasticMQ (SQS). Start with `docker compose up -d`; the URIs in .env.example point here.
 # Tests don't use this file: they start their own containers (test/global-setup.ts).
 name: helium-backend
 
@@ -35,6 +35,13 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+  elasticmq:
+    image: softwaremill/elasticmq-native:1.6.14
+    ports:
+      - '9324:9324'
+    volumes:
+      - ./docker/elasticmq.conf:/opt/elasticmq.conf:ro
 
 volumes:
   mongo-data:
