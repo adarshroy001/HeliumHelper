@@ -23,7 +23,7 @@ Settings are validated at startup; a wrong value stops the app with a clear mess
 5. **`.env.example`**: the variable with a comment and a working local value. A test fails if it's missing or extra.
 6. **Tests needing a value** that has no default: add it to `env` in `vitest.config.ts`, or to `test/global-setup.ts` if a container provides it.
 7. **Unit test** the rules in `<area>.config.spec.ts`: valid, default, and each rejection.
-8. **AWS**: plain values in the service's environment in `deploy/`; secrets in Secrets Manager, referenced by the task definition (`deploy/lib/services-stack.ts`).
+8. **AWS**: plain values in `serviceEnvironment()` in `deploy/lib/app-runtime.ts`; secrets as a Secrets Manager secret (foundation or data stack) referenced there with `EcsSecret.fromSecretsManager`.
 9. Use it by injecting the typed area: `@Inject(whatsappConfig.KEY) private readonly whatsapp: WhatsappConfig`.
 
 ## Never

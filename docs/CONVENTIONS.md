@@ -266,6 +266,8 @@ Every error response has one shape ([ADR-0008](adr/0008-error-contract.md)):
 - **Environments** are data in `deploy/config/environments.ts`. Existing resources (VPC, subnets, DocumentDB) are referenced by ID, so `cdk synth` needs no AWS access and runs in CI.
 - **Tests** assert on the synthesized templates (`deploy/test/`): anything that protects data or access (retention, encryption, private networking, least privilege) has a test.
 - Resources holding data or history (repository, log groups, secrets, queues) are kept when a stack is deleted.
+- **Services:** the API runs behind an internal load balancer reachable only by the callers in the environment config, health-checked on `/health/ready`; the worker runs every consumer (`WORKER_QUEUES=*`). Both run in private subnets with no public IP, scale on CPU, and roll back automatically when a deployment's tasks don't become healthy. Secrets reach containers only through Secrets Manager references.
+- **A new setting** the services need goes in `deploy/lib/app-runtime.ts` (environment or secret) as well as in `src/config`.
 - **A new queue** goes in `deploy/config/queues.ts` and `docker/elasticmq.conf` together (a test compares them). Every queue gets a DLQ and alarms on oldest-message age and DLQ depth, sent to the `<prefix>-alarms` topic.
 
 ## Docker image
@@ -367,4 +369,4 @@ Every error response has one shape ([ADR-0008](adr/0008-error-contract.md)):
 | 2026-10-29 | New Audit log section (F19) |
 | 2026-10-29 | Skills added and docs checked against the code (F21) |
 | 2026-10-29 | New Docker image section (F22) |
-| 2026-10-29 | New Infrastructure section (F23); queues, Valkey and schedules in AWS, R9 enforced (F24) |
+| 2026-10-29 | New Infrastructure section (F23); queues, Valkey and schedules in AWS, R9 enforced (F24); services and migration task (F25) |

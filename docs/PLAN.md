@@ -38,7 +38,7 @@ The workflow and the Definition of Done for every task are in [CONVENTIONS.md](C
 | F22 | Docker image | F17 | In review |
 | F23 | AWS foundation (CDK) | F22 | In review |
 | F24 | AWS data and queues | F23 | In review |
-| F25 | AWS services and staging deploy | F24 | Not started |
+| F25 | AWS services and staging deploy | F24 | In review (staging deploy needs AWS access) |
 | F26 | Deploy pipeline and runbook | F25 | Not started |
 | M1–M21 | Messaging (below) | F26 | Not started |
 

@@ -33,6 +33,10 @@ ENV NODE_ENV=production
 COPY --from=build --chown=node:node /app/package.json ./
 COPY --from=build --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/dist ./dist
+# CA bundle for TLS to DocumentDB (MONGO_TLS_CA_FILE=/app/certs/global-bundle.pem in AWS). The folder is made
+# first: ADD would give it the file's read-only mode, and a folder needs execute permission to be entered.
+RUN mkdir -p /app/certs
+ADD --chown=node:node --chmod=444 https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem /app/certs/global-bundle.pem
 
 # The official image's unprivileged user.
 USER node
