@@ -8,7 +8,8 @@ import { appConfig, type AppConfig } from './config/index.js';
 async function bootstrap(): Promise<void> {
   // abortOnError: false — let startup errors (such as invalid config) reach the handler below,
   // which logs them in full, instead of Nest exiting on its own.
-  const app = configureApp(await NestFactory.create(AppModule, { abortOnError: false }));
+  // bufferLogs: hold Nest's startup logs until pino is attached in configureApp.
+  const app = configureApp(await NestFactory.create(AppModule, { abortOnError: false, bufferLogs: true }));
   const config = app.get<AppConfig>(appConfig.KEY);
 
   await app.listen(config.port);

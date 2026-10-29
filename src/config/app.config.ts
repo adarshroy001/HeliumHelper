@@ -11,8 +11,8 @@ export const appEnvSchema = z
     APP_ENV: z.enum(['local', 'staging', 'production']),
     /** Port the API listens on. */
     PORT: z.coerce.number().int().min(1).max(65_535).default(3000),
-    /** Minimum log level. */
-    LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
+    /** Minimum log level. `silent` turns logging off (tests). */
+    LOG_LEVEL: z.enum(['silent', 'fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
     /** Service name shown in logs and metrics. */
     APP_NAME: z.string().min(1).default('helium-backend'),
   })
@@ -25,12 +25,12 @@ export const appEnvSchema = z
         message: `must be "production" when APP_ENV is "${env.APP_ENV}"`,
       });
     }
-    // Debug-level logs are too verbose and too likely to contain customer data for production.
-    if (env.APP_ENV === 'production' && (env.LOG_LEVEL === 'debug' || env.LOG_LEVEL === 'trace')) {
+    // Production needs logs, but not debug-level ones: too verbose and too likely to hold customer data.
+    if (env.APP_ENV === 'production' && ['silent', 'debug', 'trace'].includes(env.LOG_LEVEL)) {
       ctx.addIssue({
         code: 'custom',
         path: ['LOG_LEVEL'],
-        message: 'must be "info" or quieter in production',
+        message: 'must be "info", "warn", "error" or "fatal" in production',
       });
     }
   });

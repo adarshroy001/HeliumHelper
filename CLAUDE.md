@@ -52,6 +52,8 @@ Migrations (F13) are added by that task. Git hooks run lint-staged on commit and
 - HTTP tests boot the real app with `createTestApp()` from `test/helpers/create-test-app.ts`, then call `request(t.http)`. It applies the same `configureApp()` as `main.ts`.
 - Global app setup goes in `src/app.setup.ts`, never only in `main.ts`, so tests run what production runs.
 
+**Logging:** inject `PinoLogger` and call `logger.setContext(MyClass.name)` in the constructor; log `logger.info({ fields }, 'constant message')`. Not `@InjectPinoLogger`. Mask phones with `maskPhone()`. The request ID is `ClsService.getId()`. HTTP tests that assert on logs use `LogCapture` (`test/helpers/log-capture.ts`) and set `LOG_LEVEL=info`.
+
 **Config:** inject a typed area config (`@Inject(appConfig.KEY) private readonly app: AppConfig`). New variables go in the area's zod schema and in `.env.example`; a test checks the two match. See CONVENTIONS → Configuration.
 
 ## Hard rules (summary)

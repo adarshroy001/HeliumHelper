@@ -57,9 +57,9 @@ describe('parseAppConfig', () => {
     ]);
   });
 
-  it('refuses debug logging in production', () => {
-    expect(problemsOf({ NODE_ENV: 'production', APP_ENV: 'production', LOG_LEVEL: 'debug' })).toEqual([
-      'LOG_LEVEL: must be "info" or quieter in production',
+  it.each([['debug'], ['trace'], ['silent']])('refuses LOG_LEVEL=%s in production', (level) => {
+    expect(problemsOf({ NODE_ENV: 'production', APP_ENV: 'production', LOG_LEVEL: level })).toEqual([
+      'LOG_LEVEL: must be "info", "warn", "error" or "fatal" in production',
     ]);
   });
 

@@ -19,8 +19,8 @@ The workflow and the Definition of Done for every task are in [CONVENTIONS.md](C
 | F3 | Lint, format and git hooks | F2 | Done |
 | F4 | Test setup | F2 | Done |
 | F5 | CI pipeline and repo hygiene | F3, F4 | Done (PR #1 awaiting merge) |
-| F6 | Config | F5 | In review |
-| F7 | Logging and request context | F6 | Not started |
+| F6 | Config | F5 | Done |
+| F7 | Logging and request context | F6 | In review |
 | F8 | Error handling | F7 | Not started |
 | F9 | Validation and API docs | F8 | Not started |
 | F10 | HTTP setup and health | F9 | Not started |

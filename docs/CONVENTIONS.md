@@ -80,6 +80,37 @@ See [ADR-0004](adr/0004-project-structure.md) for the full tree.
     3. Add it to `.env.example` with a comment. A test fails if `.env.example` and the schemas disagree.
     4. Add tests for its validation rules.
 
+## Logging and request context
+
+- **Format:**
+    - In deployed environments, every line is JSON on stdout: `level`, `time` (ISO), `service`, `env`, `msg`, plus fields.
+    - With `NODE_ENV=development`, lines are pretty-printed.
+    - With `LOG_LEVEL=silent` (the test default), nothing is printed.
+- **Access log:** one line per request, `request completed`, carrying `requestId`, `req.method`, `req.path` (never the query string), `res.statusCode` and `durationMs`.
+    - Levels: info for 2xx–3xx, warn for 4xx, error for 5xx.
+    - Health checks aren't logged.
+    - No request headers are ever logged.
+- **Request ID:**
+    - It comes from `resolveRequestId()` (`src/infrastructure/request-context/request-id.ts`), the only generator.
+    - A safe incoming `X-Request-Id` is reused; otherwise a UUID is created.
+    - The same value appears in the `X-Request-Id` response header, in every log line of the request, and in `ClsService.getId()`.
+- **Writing logs in a class:**
+    ```ts
+    constructor(private readonly logger: PinoLogger) {
+      logger.setContext(CampaignsService.name);
+    }
+    // ...
+    this.logger.info({ campaignId, count }, 'campaign started');
+    ```
+    - Fields go first, then a short, constant message. Never build the message by concatenating values.
+    - Don't use `@InjectPinoLogger()`: it depends on module load order.
+- **Never log:**
+    - tokens, secrets or passwords;
+    - message bodies or template parameters;
+    - raw phone numbers. Use `maskPhone()` from `src/common/utils/mask-phone.ts`.
+
+    Known secret field names (`token`, `password`, `secret`, `authorization`, `apiKey` and similar, top level or one level deep) are replaced with `[Redacted]` automatically. That's a safety net, not permission to log them.
+
 ## Rules
 
 | # | Rule | Enforced by |
@@ -96,7 +127,7 @@ See [ADR-0004](adr/0004-project-structure.md) for the full tree.
 | R10 | **Idempotency:** queue consumers are idempotent by a natural key. Mutating admin endpoints accept `Idempotency-Key` | Review; F15 interceptor |
 | R11 | **Async work:** nothing slow or external runs inside an HTTP request that the caller waits on. Put it on a queue | Review |
 | R12 | **Config:** inject the typed config of an area (`@Inject(appConfig.KEY) private readonly app: AppConfig`). Never read `process.env` outside `src/config`, and don't use `ConfigService.get('…')` string keys in feature code. See [Configuration](#configuration) | Lint `no-restricted-properties` (`process.env` outside `src/config` and tests) |
-| R13 | **Logging:** use the injected pino logger with structured fields. Phone numbers are masked; tokens, secrets and message bodies are never logged | Redaction config (*planned, F7*), review |
+| R13 | **Logging:** use the injected `PinoLogger` with structured fields. Phone numbers are masked with `maskPhone()`; tokens, secrets and message bodies are never logged. See [Logging and request context](#logging-and-request-context) | Redaction of known secret fields, header-free and query-free access logs (tested); review |
 | R14 | **Tests:** unit tests for business rules (`*.spec.ts` next to the code), integration tests against real Mongo, Redis and SQS containers (`*.int-spec.ts` next to the code), and HTTP tests through the real app via `createTestApp()` (`test/*.e2e-spec.ts`). Tests use the same strict lint rules as app code | `pnpm test`, `test:int`, `test:e2e`; CI (*planned, F5*) |
 | R15 | **Dependencies:** add a library only with a reason in the PR description. Prefer what is already in use. Versions are pinned exactly (`savePrefix: ''`). Dependency install scripts are denied unless listed in `allowBuilds` in `pnpm-workspace.yaml` | Review; pnpm settings |
 | R16 | **ESM imports:** relative imports end in `.js`, even from `.ts` files (`./app.module.js`). Type-only imports use `import type`, except in files with decorators, where the lint rule stands down because NestJS injection needs real imports | TypeScript `nodenext` (compile error); lint `consistent-type-imports` |
@@ -126,3 +157,4 @@ See [ADR-0004](adr/0004-project-structure.md) for the full tree.
 | 2026-10-28 | R14 gives test file locations and `createTestApp()`; `app.setup.ts` added to the structure table (F4) |
 | 2026-10-29 | CI, Dependabot and branch protection documented; the agent may commit and push task branches (F5) |
 | 2026-10-29 | New Configuration section; R12 enforced by lint (F6) |
+| 2026-10-29 | New Logging and request context section; R13 detailed (F7) |
