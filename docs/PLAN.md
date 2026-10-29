@@ -18,7 +18,7 @@ The workflow and the Definition of Done for every task are in [CONVENTIONS.md](C
 | F2 | Project scaffold | F1 | Done |
 | F3 | Lint, format and git hooks | F2 | Done |
 | F4 | Test setup | F2 | Done |
-| F5 | CI pipeline and repo hygiene | F3, F4 | In progress |
+| F5 | CI pipeline and repo hygiene | F3, F4 | In review |
 | F6 | Config | F5 | Not started |
 | F7 | Logging and request context | F6 | Not started |
 | F8 | Error handling | F7 | Not started |

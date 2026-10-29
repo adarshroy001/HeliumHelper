@@ -1,3 +1,5 @@
+<!-- PR title = the squash commit message on main: a Conventional Commit, e.g. "feat(config): typed config (F6)". -->
+
 ## Task
 
 <!-- Plan task ID and name, e.g. "F6 · Config". One task per PR (docs/PLAN.md). -->
