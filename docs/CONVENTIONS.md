@@ -20,8 +20,8 @@ If the code and this document disagree, fix one of them in the same PR. Never le
 
 ### Definition of Done
 
-- [ ] The task's "Done when" criteria are met.
-- [ ] `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm test:int`, `pnpm test:e2e` and `pnpm build` pass locally, and the CI check `check` is green.
+- [ ] Each task's "Done when" criteria are met.
+- [ ] `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm test:int`, `pnpm test:e2e`, `pnpm build` and `pnpm test:smoke` pass locally, and the CI check `check` is green.
 - [ ] New behaviour has tests, including the failure paths.
 - [ ] No `any`, no unawaited promises, no `console.log`, no secrets in code or logs.
 - [ ] Docs, ADRs and skills affected by the change are updated.
@@ -35,7 +35,8 @@ If the code and this document disagree, fix one of them in the same PR. Never le
     2. commit message check (the pull request's commits, or the commits pushed to `main`);
     3. format, lint, typecheck;
     4. unit, integration and HTTP tests;
-    5. build.
+    5. build;
+    6. smoke tests of the built app.
 - **Dependabot** opens weekly update PRs for npm packages and GitHub Actions. It doesn't propose TypeScript 7 or `@types/node` majors (ADR-0014).
 - **Branch protection for `main`,** set by a repo admin under GitHub → Settings → Branches (or Rulesets):
     1. Require a pull request before merging, with 1 approval, and dismiss stale approvals when new commits are pushed.
@@ -43,7 +44,7 @@ If the code and this document disagree, fix one of them in the same PR. Never le
     3. Require conversation resolution before merging.
     4. Block force pushes and deletions.
     5. Under General → Pull Requests, allow **squash merging only**, with the default commit message set to the pull request title.
-- **One task, one squash commit on `main`.** The PR title becomes that commit's message, so it must be a Conventional Commit, for example `feat(config): typed config with startup validation (F6)`. CI checks commit messages on `main`, so a bad title fails there.
+- **One batch, one squash commit on `main`.** The PR title becomes that commit's message, so it must be a Conventional Commit, for example `feat: authentication, MongoDB and migrations (F11–F13)`. CI checks commit messages on `main`, so a bad title fails there.
 
 ## Project structure
 

@@ -1,8 +1,8 @@
-<!-- PR title = the squash commit message on main: a Conventional Commit, e.g. "feat(config): typed config (F6)". -->
+<!-- PR title = the squash commit message on main: a Conventional Commit, e.g. "feat: auth and MongoDB (F11–F13)". -->
 
-## Task
+## Tasks
 
-<!-- Plan task ID and name, e.g. "F6 · Config". One task per PR (docs/PLAN.md). -->
+<!-- The batch's plan task IDs and names, e.g. "F11 · Auth, F12 · MongoDB". Two to four tasks per PR (docs/PLAN.md). -->
 
 ## What changed and why
 
@@ -14,8 +14,8 @@
 
 ## Definition of Done
 
-- [ ] The task's "Done when" criteria in `docs/PLAN.md` are met
-- [ ] CI (`check`) is green: format, lint, typecheck, unit, integration and HTTP tests, build
+- [ ] Each task's "Done when" criteria in `docs/PLAN.md` are met
+- [ ] CI (`check`) is green: format, lint, typecheck, unit, integration and HTTP tests, build, smoke tests
 - [ ] New behaviour has tests, including the failure paths
 - [ ] No `any`, no unawaited promises, no `console.log`, no secrets in code or logs
 - [ ] Docs affected by the change are updated (CONVENTIONS, CLAUDE.md, ADR, module README, skills)
