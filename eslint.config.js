@@ -53,7 +53,8 @@ export default defineConfig(
     },
   },
 
-  // Business modules throw AppError subclasses only (R6) and choose how objects treat unknown keys (R5).
+  // Business modules throw AppError subclasses only (R6), choose how objects treat unknown keys (R5) and serve
+  // routes under an audience prefix (ADR-0010).
   // Tests may use anything.
   {
     files: ['src/modules/**/*.ts'],
@@ -62,7 +63,15 @@ export default defineConfig(
       'no-restricted-imports': [
         'error',
         {
-          paths: [NO_FORWARD_REF],
+          paths: [
+            NO_FORWARD_REF,
+            {
+              name: '@nestjs/common',
+              importNames: ['Controller'],
+              message:
+                'Use InternalController from src/common/http, so routes get their audience prefix (ADR-0010).',
+            },
+          ],
           patterns: [
             {
               group: ['@nestjs/common'],
