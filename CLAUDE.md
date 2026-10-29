@@ -64,6 +64,8 @@ Migrations (F13) are added by that task. Git hooks run lint-staged on commit and
 
 **Database:** models register on `DB.main` (read-only) or `DB.messaging`; only repositories use them. Lists use `findPage()`, atomic multi-document writes use `withTransaction()`. Integration tests get a fresh database from `connectTestDatabase()`. See CONVENTIONS → Database.
 
+**Retries and limits:** mutating routes callers may retry get `@Idempotent()` (from `src/infrastructure/idempotency`). Limits are per caller per audience; change one with `@Throttle({ internal: { limit, ttl } })`. See CONVENTIONS → Rate limits and idempotency.
+
 **Redis:** inject `Redis` by class, for coordination only. Keys come from `redisKey()`, atomic steps are `luaScript()` + `runScript()`, locks are `acquireLock()`. See CONVENTIONS → Redis.
 
 **Migrations:** every index and data change is a file in `src/migrations/` (`pnpm migrate:create`), using the driver `Db`, never models. Run once each, in order, before the new code deploys. See CONVENTIONS → Migrations.

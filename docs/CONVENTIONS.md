@@ -206,6 +206,20 @@ Every error response has one shape ([ADR-0008](adr/0008-error-contract.md)):
 - **Locks:** `acquireLock(redis, key, ttlMs)` returns a `Lock` or `null`; `lock.release()` deletes it only if it is still ours. Work under a lock must still be idempotent.
 - **Locally:** `docker compose up -d` starts Valkey with `noeviction`. Integration tests use `connectTestRedis()` (`test/helpers/redis.ts`) and unique keys.
 
+## Rate limits and idempotency
+
+- **Rate limits** are shared by every API instance through Redis. Each audience prefix has its own named limit: `internal`, 600 requests a minute per caller (`INTERNAL_LIMIT`). A caller is the calling service plus its user.
+    - A route changes its limit with `@Throttle({ internal: { limit: 10, ttl: 60_000 } })`, or opts out with `@SkipThrottle({ internal: true })`.
+    - Over the limit: 429 `RATE_LIMITED` with `details.retryAfterSeconds` and a `Retry-After` header.
+    - Routes outside the prefixes (health checks) are never limited.
+    - If Redis is down, limits are off (fail open) and a warning is logged once a minute. A limiter must not take the API down with it.
+- **Idempotency** (R10): every mutating route a caller may retry carries `@Idempotent()`. Callers send `Idempotency-Key: <unique id>` (1–128 letters, digits or `- _ . :`).
+    - The first request runs, and its response is kept for 24 hours. A retry with the same key and request gets the same response (`Idempotent-Replayed: true`) without running the handler again.
+    - The same key with a different method, path or body: 422 `IDEMPOTENCY_KEY_REUSED`. A retry while the first is still running: 409 `IDEMPOTENCY_IN_PROGRESS`.
+    - A failed request keeps nothing, so it can be retried. Keys are scoped to the calling service.
+    - If Redis is down, requests that carry a key are refused with 503 `IDEMPOTENCY_UNAVAILABLE`: running them could run them twice. Requests without a key run normally.
+    - A request that crashes mid-way blocks its key for 5 minutes, then a retry runs it again. Handlers must still tolerate a rare repeat.
+
 ## HTTP
 
 - **Route prefixes by audience** ([ADR-0010](adr/0010-auth-and-access.md)). Module controllers use `@InternalController('campaigns')` from `src/common/http/`, which serves `/internal/v1/campaigns`. Plain `@Controller` is banned in `src/modules` by lint. `/admin/v1` and `/store/v1` are reserved; their decorators are added when those audiences arrive.
@@ -251,7 +265,7 @@ Every error response has one shape ([ADR-0008](adr/0008-error-contract.md)):
 | R7 | **Access:** every route declares `@Public()` or `@RequirePermissions(...)`. Routes are denied by default. See [Authentication and access](#authentication-and-access) | Global guards; route-coverage test |
 | R8 | **Data access:** queries are scoped and indexed. Lists use cursor pagination, never `skip`. Hot paths use `bulkWrite` and `lean()`. Transactions only when a use case needs them, kept short. See [Database](#database) | `findPage` and `withTransaction` helpers; `strictQuery: 'throw'`; review |
 | R9 | **Database writes:** the `main` database is read-only from this backend unless an ADR grants a module write access to specific collections | Database user permissions (*planned, F24*) |
-| R10 | **Idempotency:** queue consumers are idempotent by a natural key. Mutating admin endpoints accept `Idempotency-Key` | Review; F15 interceptor |
+| R10 | **Idempotency:** queue consumers are idempotent by a natural key. Mutating routes that callers may retry carry `@Idempotent()` and accept `Idempotency-Key`. See [Rate limits and idempotency](#rate-limits-and-idempotency) | `@Idempotent()` interceptor (tested); review |
 | R11 | **Async work:** nothing slow or external runs inside an HTTP request that the caller waits on. Put it on a queue | Review |
 | R12 | **Config:** inject the typed config of an area (`@Inject(appConfig.KEY) private readonly app: AppConfig`). Never read `process.env` outside `src/config`, and don't use `ConfigService.get('…')` string keys in feature code. See [Configuration](#configuration) | Lint `no-restricted-properties` (`process.env` outside `src/config` and tests) |
 | R13 | **Logging:** use the injected `PinoLogger` with structured fields. Phone numbers are masked with `maskPhone()`; tokens, secrets and message bodies are never logged. See [Logging and request context](#logging-and-request-context) | Redaction of known secret fields, header-free and query-free access logs (tested); review |
@@ -293,3 +307,4 @@ Every error response has one shape ([ADR-0008](adr/0008-error-contract.md)):
 | 2026-10-29 | New Database section; R8 helpers (F12) |
 | 2026-10-29 | New Migrations section; migrations live in `src/migrations/` (F13) |
 | 2026-10-29 | New Redis section (F14) |
+| 2026-10-29 | New Rate limits and idempotency section; R10 enforced by `@Idempotent()` (F15) |
