@@ -5,6 +5,7 @@ import { defineConfig } from 'vitest/config';
  * - unit:        next to the code, no I/O
  * - integration: next to the code, real MongoDB / Valkey / ElasticMQ in containers (from F12)
  * - e2e:         whole HTTP requests through the real app, in test/
+ * - smoke:       the built app (dist/) as a real process: signals, startup failures. Needs `pnpm build`.
  */
 export default defineConfig({
   test: {
@@ -41,6 +42,10 @@ export default defineConfig({
           testTimeout: 30_000,
           hookTimeout: 180_000,
         },
+      },
+      {
+        extends: true,
+        test: { name: 'smoke', include: ['test/smoke/**/*.smoke-spec.ts'], testTimeout: 30_000 },
       },
     ],
   },

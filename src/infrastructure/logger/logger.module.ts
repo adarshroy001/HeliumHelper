@@ -3,6 +3,7 @@ import { LoggerModule as PinoLoggerModule } from 'nestjs-pino';
 import { destination, type DestinationStream } from 'pino';
 import { appConfig, type AppConfig } from '../../config/index.js';
 import { httpLoggerOptions } from './http-logger.options.js';
+import { ShutdownLogger } from './shutdown-logger.js';
 
 /** Where log lines go. Tests replace it with an in-memory stream to assert on log output. */
 export const LOG_DESTINATION = Symbol('LOG_DESTINATION');
@@ -38,5 +39,6 @@ const logDestination: Provider = {
       }),
     }),
   ],
+  providers: [ShutdownLogger],
 })
 export class LoggerModule {}
