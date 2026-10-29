@@ -34,7 +34,7 @@ Run pnpm through Corepack (`corepack pnpm …`), or `corepack enable` once and t
 | Command | Does |
 | --- | --- |
 | `pnpm install` | Install exact versions from the lockfile |
-| `docker compose up -d` | Start local MongoDB (a replica set) for `pnpm dev` |
+| `docker compose up -d` | Start local MongoDB (a replica set) and Valkey for `pnpm dev` |
 | `pnpm dev` | Run the API in watch mode |
 | `pnpm build` | Compile to `dist/` with `tsc` |
 | `pnpm start` | Run the compiled API (`dist/main.js`) |
@@ -63,6 +63,8 @@ Migrations (F13) are added by that task. Git hooks run lint-staged on commit and
 **Errors:** a module's errors live in `<module>.errors.ts` and extend a common error from `src/common/errors/` (`NotFoundError`, `ConflictError`, ...) with a fixed code and a user-safe message. The global filter renders `{ statusCode, code, message, details?, requestId }`. See CONVENTIONS → Errors.
 
 **Database:** models register on `DB.main` (read-only) or `DB.messaging`; only repositories use them. Lists use `findPage()`, atomic multi-document writes use `withTransaction()`. Integration tests get a fresh database from `connectTestDatabase()`. See CONVENTIONS → Database.
+
+**Redis:** inject `Redis` by class, for coordination only. Keys come from `redisKey()`, atomic steps are `luaScript()` + `runScript()`, locks are `acquireLock()`. See CONVENTIONS → Redis.
 
 **Migrations:** every index and data change is a file in `src/migrations/` (`pnpm migrate:create`), using the driver `Db`, never models. Run once each, in order, before the new code deploys. See CONVENTIONS → Migrations.
 

@@ -197,6 +197,15 @@ Every error response has one shape ([ADR-0008](adr/0008-error-contract.md)):
     - A pending migration numbered below one already applied (from a branch merged late) is refused: renumber it.
 - **Deploying:** `node dist/migrate.js up` runs as a one-off task before the new code starts (F25). New code must work with the database both before and after its migrations.
 
+## Redis
+
+- **Coordination only** ([ADR-0007](adr/0007-redis.md)): locks, rate limits, idempotency keys, live counters. Never data we can't rebuild from the database or afford to lose. Every use documents what happens when Redis is down.
+- **The client:** inject `Redis` (from `ioredis`) by class; `RedisModule` provides one shared client. While disconnected, commands fail at once (no offline queue), and every command times out after 2 seconds, so a caller never hangs. A Redis that can't be reached fails the start; `/health/ready` pings it.
+- **Keys:** `redisKey(domain, purpose, id)` builds `domain:purpose:{id}`. The braces are the hash tag: keys that a script uses together share an `id`, so they stay in one cluster slot.
+- **Atomic multi-step operations** are Lua scripts declared with `luaScript({ name, keys, lua })` next to the code that uses them, and run with `runScript(redis, script, keys, args)`. Keys are always passed in, never built inside the script.
+- **Locks:** `acquireLock(redis, key, ttlMs)` returns a `Lock` or `null`; `lock.release()` deletes it only if it is still ours. Work under a lock must still be idempotent.
+- **Locally:** `docker compose up -d` starts Valkey with `noeviction`. Integration tests use `connectTestRedis()` (`test/helpers/redis.ts`) and unique keys.
+
 ## HTTP
 
 - **Route prefixes by audience** ([ADR-0010](adr/0010-auth-and-access.md)). Module controllers use `@InternalController('campaigns')` from `src/common/http/`, which serves `/internal/v1/campaigns`. Plain `@Controller` is banned in `src/modules` by lint. `/admin/v1` and `/store/v1` are reserved; their decorators are added when those audiences arrive.
@@ -283,3 +292,4 @@ Every error response has one shape ([ADR-0008](adr/0008-error-contract.md)):
 | 2026-10-29 | New Authentication and access section; R7 enforced (F11) |
 | 2026-10-29 | New Database section; R8 helpers (F12) |
 | 2026-10-29 | New Migrations section; migrations live in `src/migrations/` (F13) |
+| 2026-10-29 | New Redis section (F14) |

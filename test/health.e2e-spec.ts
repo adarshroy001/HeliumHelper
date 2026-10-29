@@ -48,7 +48,7 @@ describe('health checks', () => {
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({
       status: 'ok',
-      info: { mongoMain: { status: 'up' }, mongoMessaging: { status: 'up' } },
+      info: { mongoMain: { status: 'up' }, mongoMessaging: { status: 'up' }, redis: { status: 'up' } },
       error: {},
     });
   });

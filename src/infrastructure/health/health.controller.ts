@@ -4,8 +4,10 @@ import {
   HealthCheck,
   HealthCheckService,
   type HealthCheckResult,
+  HealthIndicatorService,
   MongooseHealthIndicator,
 } from '@nestjs/terminus';
+import { Redis } from 'ioredis';
 import type { Connection } from 'mongoose';
 import { Public } from '../../common/auth/index.js';
 import { DB } from '../database/index.js';
@@ -19,7 +21,7 @@ const CHECK_TIMEOUT_MS = 1_500;
  * - `live`: the process is up. It checks no dependencies, so a database outage doesn't make ECS restart
  *   healthy containers.
  * - `ready`: the dependencies this process needs are reachable; 503 when one isn't. Pings both MongoDB
- *   connections; F14 (Redis) and F16 (SQS) add their checks to the list.
+ *   connections and Redis.
  */
 @Public()
 @Controller('health')
@@ -29,6 +31,8 @@ export class HealthController {
     private readonly mongoose: MongooseHealthIndicator,
     @InjectConnection(DB.main) private readonly main: Connection,
     @InjectConnection(DB.messaging) private readonly messaging: Connection,
+    private readonly indicators: HealthIndicatorService,
+    private readonly redis: Redis,
   ) {}
 
   @Get('live')
@@ -45,6 +49,18 @@ export class HealthController {
         this.mongoose
           .pingCheck('mongoMessaging', { connection: this.messaging })
           .withTimeout(CHECK_TIMEOUT_MS),
+      () => this.pingRedis(),
     ]);
+  }
+
+  /** Fails at once while disconnected (no offline queue), and after 2 s otherwise (the client's command timeout). */
+  private async pingRedis() {
+    const redis = this.indicators.check('redis');
+    try {
+      await this.redis.ping();
+      return redis.up();
+    } catch {
+      return redis.down();
+    }
   }
 }

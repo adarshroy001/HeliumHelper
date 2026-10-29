@@ -1,10 +1,12 @@
 import { appEnvSchema } from './app.config.js';
 import { authEnvSchema } from './auth.config.js';
 import { databaseEnvSchema } from './database.config.js';
+import { redisEnvSchema } from './redis.config.js';
 
 export { appConfig, type AppConfig } from './app.config.js';
 export { authConfig, type AuthConfig } from './auth.config.js';
 export { databaseConfig, type DatabaseConfig } from './database.config.js';
+export { redisConfig, type RedisConfig } from './redis.config.js';
 export { ConfigModule } from './config.module.js';
 export { ConfigValidationError } from './config.loader.js';
 
@@ -13,4 +15,5 @@ export const CONFIG_SCHEMAS = {
   app: appEnvSchema,
   auth: authEnvSchema,
   database: databaseEnvSchema,
+  redis: redisEnvSchema,
 } as const;
