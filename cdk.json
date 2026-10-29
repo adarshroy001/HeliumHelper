@@ -1,5 +1,8 @@
 {
   "app": "node deploy/bin/app.ts",
   "output": "cdk.out",
-  "watch": { "include": ["deploy/**"] }
+  "watch": { "include": ["deploy/**"] },
+  "context": {
+    "@aws-cdk/core:defaultCrossStackReferences": "strong"
+  }
 }

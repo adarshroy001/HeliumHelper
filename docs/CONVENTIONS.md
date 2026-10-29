@@ -2,7 +2,7 @@
 
 Last updated: 2026-10-29
 
-These are the rules for writing code in `helium-backend`. Where a rule can be checked by a tool, it is, and the "Enforced by" column says how. A rule marked *planned* becomes enforced in the task named.
+These are the rules for writing code in `helium-backend`. Where a rule can be checked by a tool, it is, and the "Enforced by" column says how.
 
 If the code and this document disagree, fix one of them in the same PR. Never leave them disagreeing.
 
@@ -266,6 +266,7 @@ Every error response has one shape ([ADR-0008](adr/0008-error-contract.md)):
 - **Environments** are data in `deploy/config/environments.ts`. Existing resources (VPC, subnets, DocumentDB) are referenced by ID, so `cdk synth` needs no AWS access and runs in CI.
 - **Tests** assert on the synthesized templates (`deploy/test/`): anything that protects data or access (retention, encryption, private networking, least privilege) has a test.
 - Resources holding data or history (repository, log groups, secrets, queues) are kept when a stack is deleted.
+- **A new queue** goes in `deploy/config/queues.ts` and `docker/elasticmq.conf` together (a test compares them). Every queue gets a DLQ and alarms on oldest-message age and DLQ depth, sent to the `<prefix>-alarms` topic.
 
 ## Docker image
 
@@ -318,7 +319,7 @@ Every error response has one shape ([ADR-0008](adr/0008-error-contract.md)):
 | R6 | **Errors:** throw an `AppError` subclass from the module's `*.errors.ts`. Never throw `HttpException` or a bare `Error` from services. Error codes are `SCREAMING_SNAKE_CASE`, unique, and never reused. See [Errors](#errors) | Lint in `src/modules` (no `*Exception` imports from `@nestjs/common`, no `throw new Error`); review for codes |
 | R7 | **Access:** every route declares `@Public()` or `@RequirePermissions(...)`. Routes are denied by default. See [Authentication and access](#authentication-and-access) | Global guards; route-coverage test |
 | R8 | **Data access:** queries are scoped and indexed. Lists use cursor pagination, never `skip`. Hot paths use `bulkWrite` and `lean()`. Transactions only when a use case needs them, kept short. See [Database](#database) | `findPage` and `withTransaction` helpers; `strictQuery: 'throw'`; review |
-| R9 | **Database writes:** the `main` database is read-only from this backend unless an ADR grants a module write access to specific collections | Database user permissions (*planned, F24*) |
+| R9 | **Database writes:** the `main` database is read-only from this backend unless an ADR grants a module write access to specific collections | Database user permissions: the `helium-backend` user has only `read` on `helium` (`deploy/scripts/create-messaging-db-users.js`) |
 | R10 | **Idempotency:** queue consumers are idempotent by a natural key. Mutating routes that callers may retry carry `@Idempotent()` and accept `Idempotency-Key`. See [Rate limits and idempotency](#rate-limits-and-idempotency) | `@Idempotent()` interceptor (tested); review |
 | R11 | **Async work:** nothing slow or external runs inside an HTTP request that the caller waits on. Put it on a queue | Review |
 | R12 | **Config:** inject the typed config of an area (`@Inject(appConfig.KEY) private readonly app: AppConfig`). Never read `process.env` outside `src/config`, and don't use `ConfigService.get('…')` string keys in feature code. See [Configuration](#configuration) | Lint `no-restricted-properties` (`process.env` outside `src/config` and tests) |
@@ -366,4 +367,4 @@ Every error response has one shape ([ADR-0008](adr/0008-error-contract.md)):
 | 2026-10-29 | New Audit log section (F19) |
 | 2026-10-29 | Skills added and docs checked against the code (F21) |
 | 2026-10-29 | New Docker image section (F22) |
-| 2026-10-29 | New Infrastructure section (F23) |
+| 2026-10-29 | New Infrastructure section (F23); queues, Valkey and schedules in AWS, R9 enforced (F24) |

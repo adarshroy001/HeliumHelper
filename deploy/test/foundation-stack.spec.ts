@@ -1,18 +1,10 @@
-import { App } from 'aws-cdk-lib';
 import { Match, Template } from 'aws-cdk-lib/assertions';
 import { describe, expect, it } from 'vitest';
-import { ENVIRONMENTS, hasPlaceholders } from '../config/environments.ts';
-import { FoundationStack } from '../lib/foundation-stack.ts';
+import { hasPlaceholders } from '../config/environments.ts';
+import { stagingStacks } from './stacks.ts';
 
-const staging = ENVIRONMENTS.find((e) => e.name === 'staging');
-if (staging === undefined) throw new Error('no staging environment');
-
-const template = Template.fromStack(
-  new FoundationStack(new App(), 'test-foundation', {
-    env: { account: '123456789012', region: staging.region },
-    config: staging,
-  }),
-);
+const { config: staging, foundation } = stagingStacks();
+const template = Template.fromStack(foundation);
 
 describe('FoundationStack', () => {
   it('creates an immutable, scanned image repository that survives stack deletion', () => {
