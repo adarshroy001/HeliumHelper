@@ -14,7 +14,7 @@ If the code and this document disagree, fix one of them in the same PR. Never le
 4. **Build** with tests alongside the code, not after it.
 5. **Update docs in the same PR:** this file, `CLAUDE.md`, an ADR, a module README or a skill, whichever the change affects.
 6. **Self-review** against the Definition of Done below.
-7. **Push the branch.** CI runs on every push. Open a PR to `main` using the template.
+7. **Push the branch and open a PR** to `main` using the template. CI runs on the PR and again on every push to it.
 8. **Stop at review.** The next task starts only after this one is approved and merged.
 9. **Commits:** small, logical commits with Conventional Commit messages, for example `feat(config): validate env at startup`. No attribution trailers. The coding agent may commit and push task branches. Merging to `main` happens through a reviewed PR.
 
@@ -30,9 +30,9 @@ If the code and this document disagree, fix one of them in the same PR. Never le
 ### Repository and CI
 
 - **Repository:** [github.com/adarshroy001/HeliumHelper](https://github.com/adarshroy001/HeliumHelper). The default branch is `main`.
-- **CI** (`.github/workflows/ci.yml`) runs on every push to any branch, and on pull requests from forks. It runs these steps in order:
+- **CI** (`.github/workflows/ci.yml`) runs on every pull request and on every push to `main`. It runs these steps in order:
     1. install from the lockfile;
-    2. commit message check (on pushes);
+    2. commit message check (the pull request's commits, or the commits pushed to `main`);
     3. format, lint, typecheck;
     4. unit, integration and HTTP tests;
     5. build.

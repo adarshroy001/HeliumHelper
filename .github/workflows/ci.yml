@@ -2,24 +2,21 @@
 name: CI
 
 on:
-  # Every branch push gets one run. Its result shows on that branch's pull request too.
-  push:
-  # Pull requests from forks don't trigger a push in this repo, so they run here instead (see the job's `if`).
   pull_request:
+  push:
+    branches: [main]
 
 permissions:
   contents: read
 
 concurrency:
   group: ci-${{ github.ref }}
-  # Keep every run on main; on other branches a newer push cancels the older run.
+  # Keep every run on main; on a pull request a newer push cancels the older run.
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   check:
     name: check
-    # Same-repo pull requests were already checked by their push run.
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-24.04
     timeout-minutes: 20
 
@@ -27,7 +24,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
         with:
-          fetch-depth: 0 # commitlint needs the pushed range
+          fetch-depth: 0 # commitlint needs the full commit range
 
       - name: Set up pnpm (version from package.json "packageManager")
         uses: pnpm/action-setup@v6
@@ -42,21 +39,19 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Commit messages
-        # Git hooks can be skipped locally; this cannot. A new branch has no "before" commit, so check it from
-        # where it left main.
-        if: github.event_name == 'push'
+        # Git hooks can be skipped locally; this cannot. Checks the pull request's commits, or the commits pushed to main.
         env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
           BEFORE: ${{ github.event.before }}
         run: |
-          if [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
-            FROM=$(git merge-base origin/main HEAD 2>/dev/null || true)
+          if [ "$EVENT" = "pull_request" ]; then
+            pnpm exec commitlint --from "$PR_BASE" --to "$PR_HEAD" --verbose
+          elif [ -n "$BEFORE" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ]; then
+            pnpm exec commitlint --from "$BEFORE" --to HEAD --verbose
           else
-            FROM="$BEFORE"
-          fi
-          if [ -n "$FROM" ] && [ "$FROM" != "$(git rev-parse HEAD)" ]; then
-            pnpm exec commitlint --from "$FROM" --to HEAD --verbose
-          else
-            echo "No new commits to check."
+            echo "First push of the branch: nothing to compare against."
           fi
 
       - name: Format
