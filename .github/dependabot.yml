@@ -1,0 +1,36 @@
+# Weekly dependency update PRs. Versions are pinned exactly (CONVENTIONS R15), so every update is a reviewed PR.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    versioning-strategy: increase
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      nestjs:
+        patterns: ['@nestjs/*']
+      lint-and-format:
+        patterns:
+          ['eslint', '@eslint/*', 'typescript-eslint', 'eslint-config-prettier', 'prettier', 'globals']
+      test:
+        patterns: ['vitest', '@vitest/*', 'supertest', '@types/supertest']
+    ignore:
+      # TypeScript 7 is blocked by @nestjs/swagger and typescript-eslint peer ranges (ADR-0014).
+      - dependency-name: typescript
+        update-types: ['version-update:semver-major']
+      # Node 24 is our runtime (ADR-0003); types follow the runtime major.
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: ci

@@ -16,11 +16,14 @@ Helium's backend: a NestJS modular monolith for APIs, background workers and int
 ```bash
 corepack enable          # once per machine; or prefix each command with `corepack`
 pnpm install
+cp .env.example .env     # local settings; the app refuses to start if any value is invalid
 pnpm dev                 # API on http://localhost:3000
 curl http://localhost:3000/health/live
 ```
 
 Docker, local services and seed data are added in later tasks (F12, F14, F16, F20).
+
+[![CI](https://github.com/adarshroy001/HeliumHelper/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/adarshroy001/HeliumHelper/actions/workflows/ci.yml)
 
 ## Documentation
 

@@ -16,7 +16,7 @@ Guide for AI coding agents working in this repo. Keep it short. Link to docs ins
 2. Follow [docs/CONVENTIONS.md](docs/CONVENTIONS.md): the workflow, the Definition of Done and rules R1–R17.
 3. A change that contradicts an ADR in [docs/adr/](docs/adr/README.md) needs a new ADR first.
 4. When the task is done, stop and ask for review. Don't start the next task.
-5. Never commit. People commit.
+5. Commit in small Conventional Commits on the task branch (`task/<id>-<name>`) and push it. Never add a `Co-Authored-By` or other attribution trailer. Never push to `main` directly; it changes only through a reviewed PR.
 
 ## Structure
 
@@ -51,6 +51,10 @@ Migrations (F13) are added by that task. Git hooks run lint-staged on commit and
 
 - HTTP tests boot the real app with `createTestApp()` from `test/helpers/create-test-app.ts`, then call `request(t.http)`. It applies the same `configureApp()` as `main.ts`.
 - Global app setup goes in `src/app.setup.ts`, never only in `main.ts`, so tests run what production runs.
+
+**Logging:** inject `PinoLogger` and call `logger.setContext(MyClass.name)` in the constructor; log `logger.info({ fields }, 'constant message')`. Not `@InjectPinoLogger`. Mask phones with `maskPhone()`. The request ID is `ClsService.getId()`. HTTP tests that assert on logs use `LogCapture` (`test/helpers/log-capture.ts`) and set `LOG_LEVEL=info`.
+
+**Config:** inject a typed area config (`@Inject(appConfig.KEY) private readonly app: AppConfig`). New variables go in the area's zod schema and in `.env.example`; a test checks the two match. See CONVENTIONS → Configuration.
 
 ## Hard rules (summary)
 

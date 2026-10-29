@@ -1,6 +1,6 @@
 # Engineering conventions
 
-Last updated: 2026-10-28
+Last updated: 2026-10-29
 
 These are the rules for writing code in `helium-backend`. Where a rule can be checked by a tool, it is, and the "Enforced by" column says how. A rule marked *planned* becomes enforced in the task named.
 
@@ -10,22 +10,40 @@ If the code and this document disagree, fix one of them in the same PR. Never le
 
 1. **One task at a time.** Tasks come from [PLAN.md](PLAN.md). Each is small enough to review in one sitting.
 2. **Before coding,** re-read the task block. If the scope is unclear or wrong, fix the plan first.
-3. **One branch per task:** `task/<id>-<short-name>`, for example `task/f6-config`.
+3. **One branch per task:** `task/<id>-<short-name>`, for example `task/f6-config`, branched from `main`.
 4. **Build** with tests alongside the code, not after it.
 5. **Update docs in the same PR:** this file, `CLAUDE.md`, an ADR, a module README or a skill, whichever the change affects.
 6. **Self-review** against the Definition of Done below.
-7. **Open a PR** using the template.
+7. **Push the branch and open a PR** to `main` using the template. CI runs on the PR and again on every push to it.
 8. **Stop at review.** The next task starts only after this one is approved and merged.
-9. **Commits:** people commit, not the coding agent. Messages follow Conventional Commits, for example `feat(config): validate env at startup`.
+9. **Commits:** small, logical commits with Conventional Commit messages, for example `feat(config): validate env at startup`. No attribution trailers. The coding agent may commit and push task branches. Merging to `main` happens through a reviewed PR.
 
 ### Definition of Done
 
 - [ ] The task's "Done when" criteria are met.
-- [ ] `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm test:int`, `pnpm test:e2e` and `pnpm build` pass locally and in CI.
+- [ ] `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm test:int`, `pnpm test:e2e` and `pnpm build` pass locally, and the CI check `check` is green.
 - [ ] New behaviour has tests, including the failure paths.
 - [ ] No `any`, no unawaited promises, no `console.log`, no secrets in code or logs.
 - [ ] Docs, ADRs and skills affected by the change are updated.
 - [ ] `PLAN.md` status is updated.
+
+### Repository and CI
+
+- **Repository:** [github.com/adarshroy001/HeliumHelper](https://github.com/adarshroy001/HeliumHelper). The default branch is `main`.
+- **CI** (`.github/workflows/ci.yml`) runs on every pull request and on every push to `main`. It runs these steps in order:
+    1. install from the lockfile;
+    2. commit message check (the pull request's commits, or the commits pushed to `main`);
+    3. format, lint, typecheck;
+    4. unit, integration and HTTP tests;
+    5. build.
+- **Dependabot** opens weekly update PRs for npm packages and GitHub Actions. It doesn't propose TypeScript 7 or `@types/node` majors (ADR-0014).
+- **Branch protection for `main`,** set by a repo admin under GitHub → Settings → Branches (or Rulesets):
+    1. Require a pull request before merging, with 1 approval, and dismiss stale approvals when new commits are pushed.
+    2. Require status checks to pass: `check`. Require the branch to be up to date before merging.
+    3. Require conversation resolution before merging.
+    4. Block force pushes and deletions.
+    5. Under General → Pull Requests, allow **squash merging only**, with the default commit message set to the pull request title.
+- **One task, one squash commit on `main`.** The PR title becomes that commit's message, so it must be a Conventional Commit, for example `feat(config): typed config with startup validation (F6)`. CI checks commit messages on `main`, so a bad title fails there.
 
 ## Project structure
 
@@ -43,6 +61,56 @@ See [ADR-0004](adr/0004-project-structure.md) for the full tree.
 | `test/` | HTTP end-to-end tests and shared test helpers | Unit tests (those sit next to the code) |
 | `deploy/` | AWS CDK | Application code |
 
+## Configuration
+
+- **One file per area** in `src/config/`, such as `app.config.ts`. Each holds:
+    - a zod schema of that area's environment variables, with a short comment per variable;
+    - a `parse…Config(env)` function that turns the validated variables into a typed object with friendly names (`port`, not `PORT`);
+    - `registerAs('<area>', () => parse…Config(process.env))` and its exported type.
+- **Validated at startup.** Every area is checked when the app starts. Any invalid or missing value stops startup with exit code 1, and the message lists every problem in that area.
+- **`NODE_ENV` vs `APP_ENV`.**
+    - `NODE_ENV` (`development` | `test` | `production`) controls how Node and libraries behave.
+    - `APP_ENV` (`local` | `staging` | `production`) says which deployment is running. Staging runs with `NODE_ENV=production` and `APP_ENV=staging`.
+    - Decide environment-specific behaviour on `APP_ENV`, for example `appConfig.isProduction`.
+- **Production safety lives in the schema** (`superRefine`). Examples: a deployed environment must run `NODE_ENV=production`, and production refuses `debug` logging.
+- **Env files.** Locally, `.env.local` then `.env` are read; real environment variables win. Tests never read env files. Vitest sets a minimal valid environment in `vitest.config.ts`.
+- **Adding a variable or area:**
+    1. Add it to the area's schema, or create a new area file.
+    2. Register a new area in `CONFIG_AREAS` (`config.module.ts`) and `CONFIG_SCHEMAS` (`index.ts`).
+    3. Add it to `.env.example` with a comment. A test fails if `.env.example` and the schemas disagree.
+    4. Add tests for its validation rules.
+
+## Logging and request context
+
+- **Format:**
+    - In deployed environments, every line is JSON on stdout: `level`, `time` (ISO), `service`, `env`, `msg`, plus fields.
+    - With `NODE_ENV=development`, lines are pretty-printed.
+    - With `LOG_LEVEL=silent` (the test default), nothing is printed.
+- **Access log:** one line per request, `request completed`, carrying `requestId`, `req.method`, `req.path` (never the query string), `res.statusCode` and `durationMs`.
+    - Levels: info for 2xx–3xx, warn for 4xx, error for 5xx.
+    - Health checks aren't logged.
+    - No request headers are ever logged.
+- **Request ID:**
+    - It comes from `resolveRequestId()` (`src/infrastructure/request-context/request-id.ts`), the only generator.
+    - A safe incoming `X-Request-Id` is reused; otherwise a UUID is created.
+    - The same value appears in the `X-Request-Id` response header, in every log line of the request, and in `ClsService.getId()`.
+- **Writing logs in a class:**
+    ```ts
+    constructor(private readonly logger: PinoLogger) {
+      logger.setContext(CampaignsService.name);
+    }
+    // ...
+    this.logger.info({ campaignId, count }, 'campaign started');
+    ```
+    - Fields go first, then a short, constant message. Never build the message by concatenating values.
+    - Don't use `@InjectPinoLogger()`: it depends on module load order.
+- **Never log:**
+    - tokens, secrets or passwords;
+    - message bodies or template parameters;
+    - raw phone numbers. Use `maskPhone()` from `src/common/utils/mask-phone.ts`.
+
+    Known secret field names (`token`, `password`, `secret`, `authorization`, `apiKey` and similar, top level or one level deep) are replaced with `[Redacted]` automatically. That's a safety net, not permission to log them.
+
 ## Rules
 
 | # | Rule | Enforced by |
@@ -58,8 +126,8 @@ See [ADR-0004](adr/0004-project-structure.md) for the full tree.
 | R9 | **Database writes:** the `main` database is read-only from this backend unless an ADR grants a module write access to specific collections | Database user permissions (*planned, F24*) |
 | R10 | **Idempotency:** queue consumers are idempotent by a natural key. Mutating admin endpoints accept `Idempotency-Key` | Review; F15 interceptor |
 | R11 | **Async work:** nothing slow or external runs inside an HTTP request that the caller waits on. Put it on a queue | Review |
-| R12 | **Config:** read only through the typed config accessors. Never read `process.env` in feature code | Lint (*planned, F6*) |
-| R13 | **Logging:** use the injected pino logger with structured fields. Phone numbers are masked; tokens, secrets and message bodies are never logged | Redaction config (*planned, F7*), review |
+| R12 | **Config:** inject the typed config of an area (`@Inject(appConfig.KEY) private readonly app: AppConfig`). Never read `process.env` outside `src/config`, and don't use `ConfigService.get('…')` string keys in feature code. See [Configuration](#configuration) | Lint `no-restricted-properties` (`process.env` outside `src/config` and tests) |
+| R13 | **Logging:** use the injected `PinoLogger` with structured fields. Phone numbers are masked with `maskPhone()`; tokens, secrets and message bodies are never logged. See [Logging and request context](#logging-and-request-context) | Redaction of known secret fields, header-free and query-free access logs (tested); review |
 | R14 | **Tests:** unit tests for business rules (`*.spec.ts` next to the code), integration tests against real Mongo, Redis and SQS containers (`*.int-spec.ts` next to the code), and HTTP tests through the real app via `createTestApp()` (`test/*.e2e-spec.ts`). Tests use the same strict lint rules as app code | `pnpm test`, `test:int`, `test:e2e`; CI (*planned, F5*) |
 | R15 | **Dependencies:** add a library only with a reason in the PR description. Prefer what is already in use. Versions are pinned exactly (`savePrefix: ''`). Dependency install scripts are denied unless listed in `allowBuilds` in `pnpm-workspace.yaml` | Review; pnpm settings |
 | R16 | **ESM imports:** relative imports end in `.js`, even from `.ts` files (`./app.module.js`). Type-only imports use `import type`, except in files with decorators, where the lint rule stands down because NestJS injection needs real imports | TypeScript `nodenext` (compile error); lint `consistent-type-imports` |
@@ -87,3 +155,6 @@ See [ADR-0004](adr/0004-project-structure.md) for the full tree.
 | 2026-10-28 | R15 now requires exact versions and an allowlist for install scripts; new R16 on ESM imports (F2) |
 | 2026-10-28 | R1–R4 and R16 enforced by lint, with folder import rules spelled out in R1; new R17 on style and commits (F3) |
 | 2026-10-28 | R14 gives test file locations and `createTestApp()`; `app.setup.ts` added to the structure table (F4) |
+| 2026-10-29 | CI, Dependabot and branch protection documented; the agent may commit and push task branches (F5) |
+| 2026-10-29 | New Configuration section; R12 enforced by lint (F6) |
+| 2026-10-29 | New Logging and request context section; R13 detailed (F7) |

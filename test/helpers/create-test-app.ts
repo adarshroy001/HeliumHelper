@@ -25,7 +25,7 @@ export interface TestApp {
 export async function createTestApp(options: CreateTestAppOptions = {}): Promise<TestApp> {
   const builder = Test.createTestingModule({ imports: [options.module ?? AppModule] });
   const moduleRef = await (options.override ? options.override(builder) : builder).compile();
-  const app = configureApp(moduleRef.createNestApplication());
+  const app = configureApp(moduleRef.createNestApplication({ bufferLogs: true }));
   await app.init();
   // Nest types the server as `any`; with the Express adapter it is a Node HTTP server.
   return { app, http: app.getHttpServer() as Server };

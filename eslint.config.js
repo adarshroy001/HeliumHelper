@@ -77,6 +77,22 @@ export default defineConfig(
     },
   },
 
+  // Environment variables are read only in src/config, which validates them (CONVENTIONS R12).
+  {
+    files: ['**/*.ts'],
+    ignores: ['src/config/**', 'test/**', 'vitest.config.ts'],
+    rules: {
+      'no-restricted-properties': [
+        'error',
+        {
+          object: 'process',
+          property: 'env',
+          message: 'Read configuration through a typed config from src/config, never process.env (R12).',
+        },
+      ],
+    },
+  },
+
   // Plain JavaScript config files are not type-checked.
   {
     files: ['**/*.js'],
