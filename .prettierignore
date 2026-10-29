@@ -1,0 +1,6 @@
+dist
+coverage
+cdk.out
+pnpm-lock.yaml
+# Docs are hand-formatted: Prettier pads Markdown tables into very long lines.
+*.md

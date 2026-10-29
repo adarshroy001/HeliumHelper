@@ -1,0 +1,2 @@
+# husky puts node_modules/.bin on PATH, so this works without a global pnpm.
+lint-staged
