@@ -12,7 +12,7 @@ If the code and this document disagree, fix one of them in the same PR. Never le
 2. **Before coding,** re-read the task block. If the scope is unclear or wrong, fix the plan first.
 3. **One branch per batch:** `task/<first-id>-<last-id>-<short-name>`, for example `task/f11-f13-auth-mongo`, branched from `main` (or from the previous batch while it awaits merge). Each task still gets its own commits.
 4. **Build** with tests alongside the code, not after it.
-5. **Update docs in the same PR:** this file, `CLAUDE.md`, an ADR, a module README or a skill, whichever the change affects.
+5. **Update docs in the same PR:** this file, `CLAUDE.md`, an ADR, a module README or a skill (`.claude/skills/`), whichever the change affects. Common jobs have a skill: add-module, add-endpoint, add-consumer, add-migration, add-config, write-tests.
 6. **Self-review** against the Definition of Done below.
 7. **Push the branch and open a PR** to `main` using the template. CI runs on the PR and again on every push to it.
 8. **Stop at review.** The next batch starts only after this one is approved.
@@ -348,3 +348,4 @@ Every error response has one shape ([ADR-0008](adr/0008-error-contract.md)):
 | 2026-10-29 | New Rate limits and idempotency section; R10 enforced by `@Idempotent()` (F15) |
 | 2026-10-29 | New Queues section (F16); consumers and the worker process added (F17); scheduled jobs added (F18) |
 | 2026-10-29 | New Audit log section (F19) |
+| 2026-10-29 | Skills added and docs checked against the code (F21) |
