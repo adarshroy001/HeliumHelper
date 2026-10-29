@@ -1,8 +1,9 @@
 import 'reflect-metadata';
 import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module.js';
-import { configureApp } from './app.setup.js';
+import { APP_OPTIONS, configureApp } from './app.setup.js';
 import { appConfig, type AppConfig } from './config/index.js';
 import { createProcessLogger, exitOnUncaughtErrors } from './infrastructure/logger/process-logger.js';
 
@@ -11,14 +12,13 @@ exitOnUncaughtErrors(processLogger);
 
 async function bootstrap(): Promise<void> {
   const app = configureApp(
-    await NestFactory.create(AppModule, {
+    await NestFactory.create<NestExpressApplication>(AppModule, {
+      ...APP_OPTIONS,
       // Nest stays silent until pino takes over in configureApp. Otherwise a failed start is printed twice:
       // once by Nest in plain text, once by the handler below.
       logger: false,
       // Startup errors reach the handler below instead of Nest aborting the process itself.
       abortOnError: false,
-      // Nest's startup logs are held, then replayed through pino.
-      bufferLogs: true,
     }),
   );
   const config = app.get<AppConfig>(appConfig.KEY);

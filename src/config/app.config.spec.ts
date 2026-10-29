@@ -22,8 +22,14 @@ describe('parseAppConfig', () => {
       port: 3000,
       logLevel: 'info',
       name: 'helium-backend',
+      corsOrigins: [],
       isProduction: false,
     });
+  });
+
+  it('reads CORS_ORIGINS as a comma-separated list', () => {
+    const env = { ...base, CORS_ORIGINS: 'https://admin.heliumair.in, http://localhost:5173' };
+    expect(parseAppConfig(env).corsOrigins).toEqual(['https://admin.heliumair.in', 'http://localhost:5173']);
   });
 
   it('coerces PORT from a string', () => {
@@ -45,10 +51,13 @@ describe('parseAppConfig', () => {
     ['LOG_LEVEL', 'verbose'],
     ['APP_ENV', 'prod'],
     ['APP_NAME', ''],
+    ['CORS_ORIGINS', 'https://admin.heliumair.in/'],
+    ['CORS_ORIGINS', '*'],
   ])('rejects %s=%s', (key, value) => {
     const problems = problemsOf({ ...base, [key]: value });
     expect(problems).toHaveLength(1);
-    expect(problems[0]).toMatch(new RegExp(`^${key}:`));
+    // List items are reported by position, e.g. `CORS_ORIGINS.0: ...`.
+    expect(problems[0]).toMatch(new RegExp(String.raw`^${key}(\.\d+)?:`));
   });
 
   it('requires NODE_ENV=production outside local', () => {
