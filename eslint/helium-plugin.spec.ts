@@ -35,6 +35,10 @@ tester.run('helium/module-boundaries', rule, {
     { filename: at('common/errors/a.ts'), code: "import { x } from '../../config/app.config.js';" },
     { filename: at('config/a.ts'), code: "import { x } from './b.js';" },
     { filename: at('lambdas/webhook.ts'), code: "import { x } from '../common/utils/hmac.js';" },
+    {
+      filename: at('migrations/0001-a.ts'),
+      code: "import { x } from '../infrastructure/migrations/index.js';",
+    },
     // Root files compose everything.
     { filename: at('main.ts'), code: "import { x } from './modules/orders/orders.service.js';" },
     { filename: at('app.module.ts'), code: "import { x } from './infrastructure/health/health.module.js';" },
@@ -99,6 +103,11 @@ tester.run('helium/module-boundaries', rule, {
     {
       filename: at('common/a.ts'),
       code: "import { x } from '../main.js';",
+      errors: [{ messageId: 'layer' }],
+    },
+    {
+      filename: at('migrations/0002-b.ts'),
+      code: "import { CampaignSchema } from '../modules/messaging/index.js';",
       errors: [{ messageId: 'layer' }],
     },
   ],

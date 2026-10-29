@@ -18,7 +18,7 @@
     - `messaging` is a new database on the same cluster, with no extra cost. Moving it to its own cluster later is a change to its URI only.
     - Each module declares which connection its models use.
 - **One owner per collection.** The owning module's repository is the only code that writes it.
-- **Indexes and data changes go through `migrations/`** (F13): ordered, up-only scripts recorded in `_migrations` and run as a deploy step. `autoIndex` is off in production. `syncIndexes` is never run in production, because it can drop indexes.
+- **Indexes and data changes go through migrations** (F13, in `src/migrations/`): ordered, up-only scripts recorded in `_migrations` and run as a deploy step. `autoIndex` is off in production. `syncIndexes` is never run in production, because it can drop indexes.
 - **Query rules:**
     - every list query is backed by an index;
     - pagination uses a cursor, not `skip`;

@@ -23,8 +23,8 @@ Guide for AI coding agents working in this repo. Keep it short. Link to docs ins
 See [ADR-0004](docs/adr/0004-project-structure.md).
 
 ```text
-src/config  src/common  src/infrastructure  src/modules/<name>  src/lambdas
-migrations/  test/  deploy/  docs/  .claude/skills/
+src/config  src/common  src/infrastructure  src/modules/<name>  src/lambdas  src/migrations
+test/  deploy/  docs/  .claude/skills/
 ```
 
 ## Commands
@@ -45,6 +45,7 @@ Run pnpm through Corepack (`corepack pnpm …`), or `corepack enable` once and t
 | `pnpm test:int` | Integration tests (`src/**/*.int-spec.ts`, real containers). Int, e2e and smoke tests need Docker running |
 | `pnpm test:e2e` | HTTP tests (`test/**/*.e2e-spec.ts`) |
 | `pnpm dev:token --roles <roles>` | Print a 5-minute service token for calling the local API |
+| `pnpm migrate` / `migrate:status` / `migrate:create <name>` | Apply pending migrations, list them, or add `src/migrations/NNNN-<name>.ts` (each builds first) |
 | `pnpm test:smoke` | Run the built app as a process: SIGTERM, startup failure (`test/smoke/`; run `pnpm build` first; the SIGTERM test is skipped on Windows) |
 | `pnpm test:cov` | All tests with a coverage report in `coverage/` |
 
@@ -62,6 +63,8 @@ Migrations (F13) are added by that task. Git hooks run lint-staged on commit and
 **Errors:** a module's errors live in `<module>.errors.ts` and extend a common error from `src/common/errors/` (`NotFoundError`, `ConflictError`, ...) with a fixed code and a user-safe message. The global filter renders `{ statusCode, code, message, details?, requestId }`. See CONVENTIONS → Errors.
 
 **Database:** models register on `DB.main` (read-only) or `DB.messaging`; only repositories use them. Lists use `findPage()`, atomic multi-document writes use `withTransaction()`. Integration tests get a fresh database from `connectTestDatabase()`. See CONVENTIONS → Database.
+
+**Migrations:** every index and data change is a file in `src/migrations/` (`pnpm migrate:create`), using the driver `Db`, never models. Run once each, in order, before the new code deploys. See CONVENTIONS → Migrations.
 
 **Access:** every route declares `@Public()` or `@RequirePermissions('area:action')`; handlers get the caller with `@CurrentActor()` and pass it to services. New permissions go in `src/common/auth/permissions.ts`. HTTP tests sign tokens with `signToken()` from `test/helpers/tokens.ts`. See CONVENTIONS → Authentication and access.
 

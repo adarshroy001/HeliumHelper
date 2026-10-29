@@ -3,12 +3,14 @@ import { existsSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { resolve } from 'node:path';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { mongoUri } from '../global-setup.js';
 
 /**
- * Runs the built app (`dist/main.js`) as a real process, for what an in-process test can't show: real signals
- * and what reaches stdout before the process exits. Run `pnpm build` first.
+ * Runs the built app (`dist/main.js`, `dist/migrate.js`) as real processes, for what an in-process test can't
+ * show: real signals, exit codes and what reaches stdout before the process exits. Run `pnpm build` first.
  */
 const MAIN = resolve('dist/main.js');
+const MIGRATE = resolve('dist/migrate.js');
 
 type LogLine = Record<string, unknown> & { level?: string; msg?: string };
 
@@ -18,8 +20,8 @@ interface RunningApp {
   exit: Promise<{ code: number | null; signal: NodeJS.Signals | null }>;
 }
 
-function start(env: Record<string, string>): RunningApp {
-  const child = spawn(process.execPath, [MAIN], {
+function start(env: Record<string, string>, args: string[] = [MAIN]): RunningApp {
+  const child = spawn(process.execPath, args, {
     env: { ...process.env, NODE_ENV: 'production', APP_ENV: 'staging', LOG_LEVEL: 'info', ...env },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -93,5 +95,26 @@ describe('the built app as a process', () => {
     expect(messages).toContain('shutting down');
     expect(messages.at(-1)).toBe('shutdown complete');
     expect(app.lines.filter((l) => l.level === 'error' || l.level === 'fatal')).toEqual([]);
+  });
+});
+
+describe('the built migration command', () => {
+  const env = { MONGO_MESSAGING_URI: mongoUri(process.env['MONGO_TEST_URI'] ?? '', 'smoke_migrations') };
+  const migrate = async (command: string) => {
+    const run = start(env, [MIGRATE, command]);
+    return { ...(await run.exit), messages: run.lines.map((l) => l.msg) };
+  };
+
+  it('applies pending migrations, then has nothing left to apply', async () => {
+    expect(await migrate('up')).toMatchObject({ code: 0 });
+
+    const second = await migrate('up');
+    expect(second).toMatchObject({ code: 0 });
+    expect(second.messages).toContain('no pending migrations');
+  });
+
+  it('reports status, and fails on an unknown command', async () => {
+    expect(await migrate('status')).toMatchObject({ code: 0 });
+    expect(await migrate('sideways')).toMatchObject({ code: 1, messages: ['migration command failed'] });
   });
 });

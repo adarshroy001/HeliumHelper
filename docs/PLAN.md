@@ -26,7 +26,7 @@ The workflow and the Definition of Done for every task are in [CONVENTIONS.md](C
 | F10 | HTTP setup and health | F9 | Done |
 | F11 | Authentication and access control | F10 | In review |
 | F12 | MongoDB connections and repositories | F10 | In review |
-| F13 | Migrations | F12 | In progress |
+| F13 | Migrations | F12 | In review |
 | F14 | Redis | F10 | Not started |
 | F15 | Rate limiting and idempotency | F11, F14 | Not started |
 | F16 | Queue publisher | F10 | Not started |
@@ -215,7 +215,7 @@ Every foundation task follows the same rules:
 
 - **Goal:** indexes and data changes are versioned, reviewed and applied once.
 - **Scope:**
-    - A `migrations/` folder holding ordered, up-only scripts.
+    - A `src/migrations/` folder holding ordered, up-only scripts (moved from a top-level folder; see ADR-0004).
     - A runner that records applied migrations in `_migrations` and takes a lock so two runs can't race.
     - Commands: `pnpm migrate`, `pnpm migrate:status`, `pnpm migrate:create <name>`.
     - Documented as a deploy step that runs before the new code starts.

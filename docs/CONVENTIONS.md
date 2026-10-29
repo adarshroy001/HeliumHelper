@@ -57,7 +57,7 @@ See [ADR-0004](adr/0004-project-structure.md) for the full tree.
 | `src/infrastructure/` | Connections to the outside world: database, Redis, queues, logger, health, HTTP error responses | Business rules |
 | `src/modules/<name>/` | One business feature: controllers, services, repositories, schemas, DTOs, errors, consumers | Imports of another module's internals |
 | `src/lambdas/` | Small AWS Lambda handlers in plain TypeScript | Anything from `@nestjs/*` |
-| `migrations/` | Ordered MongoDB index and data migrations | Code that runs at app startup |
+| `src/migrations/` | Ordered MongoDB index and data migrations (`NNNN-name.ts`) | Imports of models or business code; code that runs at app startup |
 | `test/` | HTTP end-to-end tests and shared test helpers | Unit tests (those sit next to the code) |
 | `deploy/` | AWS CDK | Application code |
 
@@ -174,6 +174,28 @@ Every error response has one shape ([ADR-0008](adr/0008-error-contract.md)):
     - A database that can't be reached at startup fails the start; `/health/ready` pings both connections.
 - **Locally:** `docker compose up -d` starts a MongoDB 7 replica set matching `.env.example`. Tests start their own container (`test/global-setup.ts`); integration tests take a fresh database each from `connectTestDatabase()` (`test/helpers/mongo.ts`).
 
+## Migrations
+
+- **Every index and data change** to the messaging database is a migration ([ADR-0005](adr/0005-database.md)). The `main` database is read-only for us and has none.
+- **Adding one:** `pnpm migrate:create "add campaign indexes"` writes `src/migrations/NNNN-add-campaign-indexes.ts`. It fails until you write it, so a forgotten one can't pass a deploy:
+    ```ts
+    const migration: Migration = {
+      async up(db) {
+        await db.collection('campaigns').createIndex({ status: 1, _id: -1 });
+      },
+    };
+    export default migration;
+    ```
+    - It gets the driver's `Db`, never Mongoose models, which change later while a migration must keep doing exactly what it did.
+    - Up only: a mistake is fixed by a new migration. Never edit or renumber one that has been applied anywhere.
+    - Make it safe to run again after a partial failure: `createIndex` already is; data changes filter on what's still to do.
+    - Keep each one short (under 30 minutes, the lock's lifetime). A big backfill is a background job, not a migration.
+- **Running:** `pnpm migrate` applies pending migrations in number order; `pnpm migrate:status` lists them. Each applied migration is recorded in `_migrations`.
+    - The first failure stops the run; the failed migration runs again next time.
+    - A lock (`_migrations_lock`) makes a second, concurrent run fail. A crashed run's lock expires after 30 minutes.
+    - A pending migration numbered below one already applied (from a branch merged late) is refused: renumber it.
+- **Deploying:** `node dist/migrate.js up` runs as a one-off task before the new code starts (F25). New code must work with the database both before and after its migrations.
+
 ## HTTP
 
 - **Route prefixes by audience** ([ADR-0010](adr/0010-auth-and-access.md)). Module controllers use `@InternalController('campaigns')` from `src/common/http/`, which serves `/internal/v1/campaigns`. Plain `@Controller` is banned in `src/modules` by lint. `/admin/v1` and `/store/v1` are reserved; their decorators are added when those audiences arrive.
@@ -259,3 +281,4 @@ Every error response has one shape ([ADR-0008](adr/0008-error-contract.md)):
 | 2026-10-29 | Tasks are reviewed in batches of two to four, one branch and PR per batch |
 | 2026-10-29 | New Authentication and access section; R7 enforced (F11) |
 | 2026-10-29 | New Database section; R8 helpers (F12) |
+| 2026-10-29 | New Migrations section; migrations live in `src/migrations/` (F13) |

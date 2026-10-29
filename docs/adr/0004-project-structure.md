@@ -29,8 +29,11 @@ src/
     index.ts         the module's public API: the only file other modules may import
     README.md        what the module owns: collections, queues, routes, events
   lambdas/           plain-TS Lambda handlers, no NestJS imports
-migrations/  test/  deploy/  docs/  .claude/skills/
+  migrations/        NNNN-name.ts, ordered MongoDB migrations (see the update below)
+test/  deploy/  docs/  .claude/skills/
 ```
+
+*Update (F13):* migrations moved from a top-level `migrations/` folder to `src/migrations/`, so they are typechecked, linted and compiled with the app, and the deployed image runs `node dist/migrate.js up` without TypeScript at runtime. They may import only the runner's types from `infrastructure/`.
 
 - **`common/` vs `infrastructure/`.**
     - `common/` holds code features call directly.

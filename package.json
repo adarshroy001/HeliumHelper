@@ -25,6 +25,9 @@
     "test:cov": "vitest run --coverage --passWithNoTests",
     "test:watch": "vitest --project unit",
     "dev:token": "node scripts/dev-token.ts",
+    "migrate": "nest build && node --enable-source-maps dist/migrate.js up",
+    "migrate:status": "nest build && node --enable-source-maps dist/migrate.js status",
+    "migrate:create": "nest build && node dist/migrate.js create",
     "prepare": "husky"
   },
   "lint-staged": {

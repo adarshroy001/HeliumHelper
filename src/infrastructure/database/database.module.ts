@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule, type MongooseModuleFactoryOptions } from '@nestjs/mongoose';
-import mongoose from 'mongoose';
+import mongoose, { type ConnectOptions } from 'mongoose';
 import { appConfig, type AppConfig, databaseConfig, type DatabaseConfig } from '../../config/index.js';
 import { type ConnectionName, DB } from './connections.js';
 
@@ -8,9 +8,9 @@ import { type ConnectionName, DB } from './connections.js';
 // documents than intended).
 mongoose.set('strictQuery', 'throw');
 
-function connectionOptions(uri: string, app: AppConfig, db: DatabaseConfig): MongooseModuleFactoryOptions {
+/** Driver settings for every connection to our databases: the app's and the migration runner's. */
+export function mongoDriverOptions(db: DatabaseConfig): ConnectOptions {
   return {
-    uri,
     // DocumentDB rejects retryable writes. Local and test connections match it.
     retryWrites: false,
     maxPoolSize: db.poolSize,
@@ -18,6 +18,13 @@ function connectionOptions(uri: string, app: AppConfig, db: DatabaseConfig): Mon
     connectTimeoutMS: 10_000,
     maxIdleTimeMS: 60_000,
     ...(db.tlsCaFile === undefined ? {} : { tls: true, tlsCAFile: db.tlsCaFile }),
+  };
+}
+
+function connectionOptions(uri: string, app: AppConfig, db: DatabaseConfig): MongooseModuleFactoryOptions {
+  return {
+    uri,
+    ...mongoDriverOptions(db),
     // Indexes and collections come from migrations (F13). Only a developer's machine builds them from schemas.
     autoIndex: app.appEnv === 'local',
     autoCreate: app.appEnv === 'local',
