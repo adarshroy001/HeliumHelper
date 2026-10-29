@@ -53,7 +53,8 @@ export default defineConfig(
     },
   },
 
-  // Business modules throw AppError subclasses only (CONVENTIONS R6, ADR-0008). Tests may use anything.
+  // Business modules throw AppError subclasses only (R6) and choose how objects treat unknown keys (R5).
+  // Tests may use anything.
   {
     files: ['src/modules/**/*.ts'],
     ignores: ['**/*.spec.ts', '**/*.int-spec.ts'],
@@ -76,6 +77,11 @@ export default defineConfig(
         {
           selector: "ThrowStatement > :matches(NewExpression, CallExpression)[callee.name='Error']",
           message: "Throw an AppError subclass from the module's *.errors.ts instead (R6).",
+        },
+        {
+          selector: "CallExpression[callee.object.name='z'][callee.property.name='object']",
+          message:
+            'z.object silently drops unknown keys. Use z.strictObject to reject them, or z.looseObject to keep them (third-party payloads) (R5).',
         },
       ],
     },
