@@ -1,0 +1,10 @@
+[
+  {
+    "name": "system-heartbeat",
+    "description": "Proves the scheduler, the system-jobs queue and the worker are working.",
+    "scheduleExpression": "cron(0/5 * * * ? *)",
+    "timezone": "Asia/Kolkata",
+    "queue": "system-jobs",
+    "input": "{\"v\":1,\"id\":\"<aws.scheduler.execution-id>\",\"type\":\"system.heartbeat.tick\",\"ts\":\"<aws.scheduler.scheduled-time>\",\"producer\":\"eventbridge-scheduler\",\"correlationId\":\"<aws.scheduler.execution-id>\",\"data\":{}}"
+  }
+]

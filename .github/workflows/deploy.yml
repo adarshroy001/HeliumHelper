@@ -1,0 +1,60 @@
+# Releases main: build the image once, release it to staging, then to production after an approval
+# (docs/RUNBOOK.md). Run it by hand with an older image tag to roll back.
+#
+# Off until AWS is set up: set the repository variable DEPLOY_ENABLED=true, and the AWS_DEPLOY_ROLE_ARN variable
+# of the GitHub environments "staging" and "production" (the pipeline stacks' DeployRoleArn output).
+name: deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Release this existing image tag (a commit SHA) instead of building: a rollback'
+        required: false
+        default: ''
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  build:
+    if: vars.DEPLOY_ENABLED == 'true' && inputs.image_tag == ''
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build the image
+        run: docker build -t "helium-backend:${GITHUB_SHA}" .
+      - name: Save the image
+        run: docker save "helium-backend:${GITHUB_SHA}" | gzip > image.tar.gz
+      - uses: actions/upload-artifact@v7
+        with:
+          name: image
+          path: image.tar.gz
+          retention-days: 7
+
+  staging:
+    needs: build
+    # After a build, or alone for a rollback (build skipped).
+    if: always() && vars.DEPLOY_ENABLED == 'true' && contains(fromJSON('["success","skipped"]'), needs.build.result)
+    uses: ./.github/workflows/release.yml
+    with:
+      environment: staging
+      image_tag: ${{ inputs.image_tag != '' && inputs.image_tag || github.sha }}
+      push_image: ${{ inputs.image_tag == '' }}
+
+  production:
+    needs: staging
+    if: always() && vars.DEPLOY_ENABLED == 'true' && needs.staging.result == 'success'
+    # The "production" GitHub environment's required reviewers are the manual approval.
+    uses: ./.github/workflows/release.yml
+    with:
+      environment: production
+      image_tag: ${{ inputs.image_tag != '' && inputs.image_tag || github.sha }}
+      push_image: ${{ inputs.image_tag == '' }}

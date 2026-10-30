@@ -27,19 +27,19 @@ The workflow and the Definition of Done for every task are in [CONVENTIONS.md](C
 | F11 | Authentication and access control | F10 | In review |
 | F12 | MongoDB connections and repositories | F10 | In review |
 | F13 | Migrations | F12 | In review |
-| F14 | Redis | F10 | Not started |
-| F15 | Rate limiting and idempotency | F11, F14 | Not started |
-| F16 | Queue publisher | F10 | Not started |
-| F17 | Queue consumer runner and worker process | F16 | Not started |
-| F18 | Scheduled jobs | F17 | Not started |
-| F19 | Audit log | F12 | Not started |
-| F20 | Local development polish | F17 | Not started |
-| F21 | Skills and conventions review | F20 | Not started |
-| F22 | Docker image | F17 | Not started |
-| F23 | AWS foundation (CDK) | F22 | Not started |
-| F24 | AWS data and queues | F23 | Not started |
-| F25 | AWS services and staging deploy | F24 | Not started |
-| F26 | Deploy pipeline and runbook | F25 | Not started |
+| F14 | Redis | F10 | In review |
+| F15 | Rate limiting and idempotency | F11, F14 | In review |
+| F16 | Queue publisher | F10 | In review |
+| F17 | Queue consumer runner and worker process | F16 | In review |
+| F18 | Scheduled jobs | F17 | In review |
+| F19 | Audit log | F12 | In review |
+| F20 | Local development polish | F17 | In review |
+| F21 | Skills and conventions review | F20 | In review |
+| F22 | Docker image | F17 | In review |
+| F23 | AWS foundation (CDK) | F22 | In review |
+| F24 | AWS data and queues | F23 | In review |
+| F25 | AWS services and staging deploy | F24 | In review (staging deploy needs AWS access) |
+| F26 | Deploy pipeline and runbook | F25 | In review (first deploy and rollback rehearsal need AWS access) |
 | M1–M21 | Messaging (below) | F26 | Not started |
 
 Where the dependencies allow, tasks may be done in a different order. The order above is the default.

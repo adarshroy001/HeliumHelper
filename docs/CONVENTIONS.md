@@ -2,7 +2,7 @@
 
 Last updated: 2026-10-29
 
-These are the rules for writing code in `helium-backend`. Where a rule can be checked by a tool, it is, and the "Enforced by" column says how. A rule marked *planned* becomes enforced in the task named.
+These are the rules for writing code in `helium-backend`. Where a rule can be checked by a tool, it is, and the "Enforced by" column says how.
 
 If the code and this document disagree, fix one of them in the same PR. Never leave them disagreeing.
 
@@ -12,7 +12,7 @@ If the code and this document disagree, fix one of them in the same PR. Never le
 2. **Before coding,** re-read the task block. If the scope is unclear or wrong, fix the plan first.
 3. **One branch per batch:** `task/<first-id>-<last-id>-<short-name>`, for example `task/f11-f13-auth-mongo`, branched from `main` (or from the previous batch while it awaits merge). Each task still gets its own commits.
 4. **Build** with tests alongside the code, not after it.
-5. **Update docs in the same PR:** this file, `CLAUDE.md`, an ADR, a module README or a skill, whichever the change affects.
+5. **Update docs in the same PR:** this file, `CLAUDE.md`, an ADR, a module README or a skill (`.claude/skills/`), whichever the change affects. Common jobs have a skill: add-module, add-endpoint, add-consumer, add-migration, add-config, write-tests.
 6. **Self-review** against the Definition of Done below.
 7. **Push the branch and open a PR** to `main` using the template. CI runs on the PR and again on every push to it.
 8. **Stop at review.** The next batch starts only after this one is approved.
@@ -33,10 +33,11 @@ If the code and this document disagree, fix one of them in the same PR. Never le
 - **CI** (`.github/workflows/ci.yml`) runs on every pull request and on every push to `main`. It runs these steps in order:
     1. install from the lockfile;
     2. commit message check (the pull request's commits, or the commits pushed to `main`);
-    3. format, lint, typecheck;
+    3. format, lint, typecheck, `cdk synth`;
     4. unit, integration and HTTP tests;
     5. build;
-    6. smoke tests of the built app.
+    6. smoke tests of the built app;
+    7. the Docker image: build, size budget, and a start check.
 - **Dependabot** opens weekly update PRs for npm packages and GitHub Actions. It doesn't propose TypeScript 7 or `@types/node` majors (ADR-0014).
 - **Branch protection for `main`,** set by a repo admin under GitHub → Settings → Branches (or Rulesets):
     1. Require a pull request before merging, with 1 approval, and dismiss stale approvals when new commits are pushed.
@@ -52,7 +53,7 @@ See [ADR-0004](adr/0004-project-structure.md) for the full tree.
 
 | Folder | What goes here | What never goes here |
 | --- | --- | --- |
-| `src/` root files | `main.ts` (API start), `app.module.ts` (what the API loads), `app.setup.ts` (global setup shared with HTTP tests) | Business logic; global setup only in `main.ts` |
+| `src/` root files | `main.ts` (API start), `app.module.ts` (what the API loads), `app.setup.ts` (global setup shared with HTTP tests), `worker.ts` and `worker.module.ts` (the worker process), `migrate.ts` (the migration command) | Business logic; global setup only in `main.ts` |
 | `src/config/` | One zod-validated config file per area | Defaults that are only safe in development, unless checked against the environment |
 | `src/common/` | Code features use directly: errors, auth guards and decorators, validation, small pure utils | Business rules; connections to external systems |
 | `src/infrastructure/` | Connections to the outside world: database, Redis, queues, logger, health, HTTP error responses | Business rules |
@@ -197,6 +198,86 @@ Every error response has one shape ([ADR-0008](adr/0008-error-contract.md)):
     - A pending migration numbered below one already applied (from a branch merged late) is refused: renumber it.
 - **Deploying:** `node dist/migrate.js up` runs as a one-off task before the new code starts (F25). New code must work with the database both before and after its migrations.
 
+## Redis
+
+- **Coordination only** ([ADR-0007](adr/0007-redis.md)): locks, rate limits, idempotency keys, live counters. Never data we can't rebuild from the database or afford to lose. Every use documents what happens when Redis is down.
+- **The client:** inject `Redis` (from `ioredis`) by class; `RedisModule` provides one shared client. While disconnected, commands fail at once (no offline queue), and every command times out after 2 seconds, so a caller never hangs. A Redis that can't be reached fails the start; `/health/ready` pings it.
+- **Keys:** `redisKey(domain, purpose, id)` builds `domain:purpose:{id}`. The braces are the hash tag: keys that a script uses together share an `id`, so they stay in one cluster slot.
+- **Atomic multi-step operations** are Lua scripts declared with `luaScript({ name, keys, lua })` next to the code that uses them, and run with `runScript(redis, script, keys, args)`. Keys are always passed in, never built inside the script.
+- **Locks:** `acquireLock(redis, key, ttlMs)` returns a `Lock` or `null`; `lock.release()` deletes it only if it is still ours. Work under a lock must still be idempotent.
+- **Locally:** `docker compose up -d` starts Valkey with `noeviction`. Integration tests use `connectTestRedis()` (`test/helpers/redis.ts`) and unique keys.
+
+## Rate limits and idempotency
+
+- **Rate limits** are shared by every API instance through Redis. Each audience prefix has its own named limit: `internal`, 600 requests a minute per caller (`INTERNAL_LIMIT`). A caller is the calling service plus its user.
+    - A route changes its limit with `@Throttle({ internal: { limit: 10, ttl: 60_000 } })`, or opts out with `@SkipThrottle({ internal: true })`.
+    - Over the limit: 429 `RATE_LIMITED` with `details.retryAfterSeconds` and a `Retry-After` header.
+    - Routes outside the prefixes (health checks) are never limited.
+    - If Redis is down, limits are off (fail open) and a warning is logged once a minute. A limiter must not take the API down with it.
+- **Idempotency** (R10): every mutating route a caller may retry carries `@Idempotent()`. Callers send `Idempotency-Key: <unique id>` (1–128 letters, digits or `- _ . :`).
+    - The first request runs, and its response is kept for 24 hours. A retry with the same key and request gets the same response (`Idempotent-Replayed: true`) without running the handler again.
+    - The same key with a different method, path or body: 422 `IDEMPOTENCY_KEY_REUSED`. A retry while the first is still running: 409 `IDEMPOTENCY_IN_PROGRESS`.
+    - A failed request keeps nothing, so it can be retried. Keys are scoped to the calling service.
+    - If Redis is down, requests that carry a key are refused with 503 `IDEMPOTENCY_UNAVAILABLE`: running them could run them twice. Requests without a key run normally.
+    - A request that crashes mid-way blocks its key for 5 minutes, then a retry runs it again. Handlers must still tolerate a rare repeat.
+
+## Queues
+
+- **Background work goes through SQS** ([ADR-0006](adr/0006-async-work.md)); nothing slow runs inside a request (R11).
+- **Message types** are declared once, in the owning module, and used by both the producer and the consumer:
+    ```ts
+    export const deliverySend = defineMessage('wa.delivery.send', z.strictObject({ deliveryId: z.string() }));
+    ```
+    The type name is `{domain}.{noun}.{verb}`.
+- **Publishing:** inject `QueuePublisher` and call `publish(queue, type, data, { groupId?, delaySeconds? })` or `publishBatch(queue, type, items)`. `queue` is the short name (`wa-send`); `SQS_QUEUE_URL_PREFIX` + name is the URL.
+    - Every message is wrapped in the envelope `{ v, id, type, ts, producer, correlationId, data }`. The envelope and the data are validated first: an invalid message throws `InvalidMessageError` and, in a batch, nothing is sent.
+    - `correlationId` is the request ID (or, in a consumer, the incoming message's), so logs follow work across processes.
+    - Batches go ten per request. Entries SQS fails on its side are retried three times; any message still unsent, or rejected as our fault, throws `QueuePublishError`.
+    - FIFO queues (`.fifo`) need `groupId` and get the envelope `id` as deduplication id. On standard queues `groupId` makes them fair queues (per tenant), when `SQS_FAIR_QUEUES` is on.
+- **Consuming:** a class marked `@Consumer({ queue, message, concurrency?, batchSize?, visibilitySeconds? })` implements `MessageHandler<T>`; it is a provider of its module. `handle(data, { envelope, receiveCount })` returns an outcome:
+    - `ack()`: done, the message is deleted;
+    - `retry(delaySeconds?)`: try again later (default backoff 5 s, 10 s, 20 s ... 15 min); after the queue's maximum receives SQS moves it to the DLQ;
+    - `park(reason)`: it will never succeed; moved to `<queue>-dlq` now, with the reason;
+    - `hold(delaySeconds)`: not now (a rate limit, a paused campaign); sent back later without counting as a failure.
+    - A thrown error is a `retry`, or a `park` for an `AppError` with `retryable: false`. A message that isn't a valid envelope of the consumer's type is parked without reaching the handler.
+    - Optional `gate()`: return `false` to stop receiving for a while (for example when Redis is down); SQS keeps the work.
+    - Handlers are idempotent by a natural key (R10): SQS may deliver a message more than once.
+    - Each message runs in its own context: `ClsService.getId()` is its `correlationId`, and every log line carries `correlationId`, `messageId` and `queue`.
+- **The worker process** (`src/worker.ts`, `pnpm start:worker`) runs the consumers named in `WORKER_QUEUES` (comma-separated, or `*`), and serves only `/health/*` on `WORKER_HEALTH_PORT`. A name without a consumer fails the start. On SIGTERM it stops receiving, finishes in-flight messages (up to 25 seconds) and exits; anything unfinished comes back after its visibility timeout. Business modules with consumers are imported into `WorkerModule`.
+- **Scheduled jobs** never run code from a timer: at each tick a message goes on a queue and a normal consumer handles it ([ADR-0006](adr/0006-async-work.md)).
+    - Declare one with `defineSchedule({ name, description, cron, timezone, queue, message, data })` in the owning module, and add it to `src/schedules.ts`.
+    - `cron` has five fields; day-of-week is `*` or names (`MON-FRI`), never numbers. Set day-of-month or day-of-week, not both.
+    - Run `pnpm schedules:export` after any change: the CDK stack creates one EventBridge Scheduler schedule per entry from `deploy/schedules.json`, and a test fails while the file is stale.
+    - Locally the worker's timer publishes the same messages (`APP_ENV=local`, not in tests).
+    - A scheduled message's envelope gets EventBridge's execution ID as `id` and `correlationId`, and the scheduled time as `ts`.
+- **Locally:** ElasticMQ in docker-compose; queues are declared in `docker/elasticmq.conf`, each with its `-dlq`. Tests create their own queues with `createTestQueue()` (`test/helpers/sqs.ts`).
+
+## Audit log
+
+- **Every state-changing admin action is recorded** in `audit_log` by `AuditService.record({ actor, action, entity, before?, after? }, session)`, from the `audit` module. Services call it explicitly.
+- **It is part of the change, not best-effort:** record inside the same `withTransaction()` as the change and pass `session`, so a failed audit write rolls the action back.
+- `action` is `{entity}.{verb}` (`campaign.start`); only fields that differ between `before` and `after` are stored, as `{ from, to }`; the actor, `requestId` and time are filled in. Never pass secrets or message bodies.
+- See `src/modules/audit/README.md` for indexes and retention.
+
+## Infrastructure
+
+- **All AWS resources are CDK code** in `deploy/` ([ADR-0011](adr/0011-hosting.md)); nothing is created by hand except the values of secrets. See `deploy/README.md`.
+- `deploy/` is TypeScript run directly by Node 24: only erasable syntax (no enums, namespaces or constructor parameter properties) and relative imports with `.ts`. It has its own `deploy/tsconfig.json`, and `pnpm typecheck`, `pnpm lint` and `pnpm test` cover it.
+- **Environments** are data in `deploy/config/environments.ts`. Existing resources (VPC, subnets, DocumentDB) are referenced by ID, so `cdk synth` needs no AWS access and runs in CI.
+- **Tests** assert on the synthesized templates (`deploy/test/`): anything that protects data or access (retention, encryption, private networking, least privilege) has a test.
+- Resources holding data or history (repository, log groups, secrets, queues) are kept when a stack is deleted.
+- **Services:** the API runs behind an internal load balancer reachable only by the callers in the environment config, health-checked on `/health/ready`; the worker runs every consumer (`WORKER_QUEUES=*`). Both run in private subnets with no public IP, scale on CPU, and roll back automatically when a deployment's tasks don't become healthy. Secrets reach containers only through Secrets Manager references.
+- **A new setting** the services need goes in `deploy/lib/app-runtime.ts` (environment or secret) as well as in `src/config`.
+- **Releases** run from the `deploy` workflow on every merge to `main`: build once, then staging, then production after an approval. Each release applies migrations before the services change, so **code must work with the database both before and after its migrations**. Rollbacks redeploy an older image tag; migrations are never rolled back. Details: [RUNBOOK.md](RUNBOOK.md).
+- **A new queue** goes in `deploy/config/queues.ts` and `docker/elasticmq.conf` together (a test compares them). Every queue gets a DLQ and alarms on oldest-message age and DLQ depth, sent to the `<prefix>-alarms` topic.
+
+## Docker image
+
+- **One image** (`Dockerfile`) runs every process; the command chooses: the API by default, `node --enable-source-maps dist/worker.js` for a worker (with `HEALTHCHECK_PORT=3001`), `node --enable-source-maps dist/migrate.js up` for migrations.
+- Built in two stages on `node:24-slim`: production dependencies only, installed without any install scripts; runs as the unprivileged `node` user; `HEALTHCHECK` calls `/health/live`.
+- `.dockerignore` is an allowlist: only `package.json`, the lockfile, the tsconfigs and `src/` (without tests) reach the build. A new file the build needs must be added to it.
+- **Budget:** 500 MB (`docker image inspect`), checked by CI, which also checks that the image starts. Today: about 440 MB, of which 118 MB is ours.
+
 ## HTTP
 
 - **Route prefixes by audience** ([ADR-0010](adr/0010-auth-and-access.md)). Module controllers use `@InternalController('campaigns')` from `src/common/http/`, which serves `/internal/v1/campaigns`. Plain `@Controller` is banned in `src/modules` by lint. `/admin/v1` and `/store/v1` are reserved; their decorators are added when those audiences arrive.
@@ -241,8 +322,8 @@ Every error response has one shape ([ADR-0008](adr/0008-error-contract.md)):
 | R6 | **Errors:** throw an `AppError` subclass from the module's `*.errors.ts`. Never throw `HttpException` or a bare `Error` from services. Error codes are `SCREAMING_SNAKE_CASE`, unique, and never reused. See [Errors](#errors) | Lint in `src/modules` (no `*Exception` imports from `@nestjs/common`, no `throw new Error`); review for codes |
 | R7 | **Access:** every route declares `@Public()` or `@RequirePermissions(...)`. Routes are denied by default. See [Authentication and access](#authentication-and-access) | Global guards; route-coverage test |
 | R8 | **Data access:** queries are scoped and indexed. Lists use cursor pagination, never `skip`. Hot paths use `bulkWrite` and `lean()`. Transactions only when a use case needs them, kept short. See [Database](#database) | `findPage` and `withTransaction` helpers; `strictQuery: 'throw'`; review |
-| R9 | **Database writes:** the `main` database is read-only from this backend unless an ADR grants a module write access to specific collections | Database user permissions (*planned, F24*) |
-| R10 | **Idempotency:** queue consumers are idempotent by a natural key. Mutating admin endpoints accept `Idempotency-Key` | Review; F15 interceptor |
+| R9 | **Database writes:** the `main` database is read-only from this backend unless an ADR grants a module write access to specific collections | Database user permissions: the `helium-backend` user has only `read` on `helium` (`deploy/scripts/create-messaging-db-users.js`) |
+| R10 | **Idempotency:** queue consumers are idempotent by a natural key. Mutating routes that callers may retry carry `@Idempotent()` and accept `Idempotency-Key`. See [Rate limits and idempotency](#rate-limits-and-idempotency) | `@Idempotent()` interceptor (tested); review |
 | R11 | **Async work:** nothing slow or external runs inside an HTTP request that the caller waits on. Put it on a queue | Review |
 | R12 | **Config:** inject the typed config of an area (`@Inject(appConfig.KEY) private readonly app: AppConfig`). Never read `process.env` outside `src/config`, and don't use `ConfigService.get('…')` string keys in feature code. See [Configuration](#configuration) | Lint `no-restricted-properties` (`process.env` outside `src/config` and tests) |
 | R13 | **Logging:** use the injected `PinoLogger` with structured fields. Phone numbers are masked with `maskPhone()`; tokens, secrets and message bodies are never logged. See [Logging and request context](#logging-and-request-context) | Redaction of known secret fields, header-free and query-free access logs (tested); review |
@@ -283,3 +364,10 @@ Every error response has one shape ([ADR-0008](adr/0008-error-contract.md)):
 | 2026-10-29 | New Authentication and access section; R7 enforced (F11) |
 | 2026-10-29 | New Database section; R8 helpers (F12) |
 | 2026-10-29 | New Migrations section; migrations live in `src/migrations/` (F13) |
+| 2026-10-29 | New Redis section (F14) |
+| 2026-10-29 | New Rate limits and idempotency section; R10 enforced by `@Idempotent()` (F15) |
+| 2026-10-29 | New Queues section (F16); consumers and the worker process added (F17); scheduled jobs added (F18) |
+| 2026-10-29 | New Audit log section (F19) |
+| 2026-10-29 | Skills added and docs checked against the code (F21) |
+| 2026-10-29 | New Docker image section (F22) |
+| 2026-10-29 | New Infrastructure section (F23); queues, Valkey and schedules in AWS, R9 enforced (F24); services and migration task (F25); release pipeline and runbook (F26) |

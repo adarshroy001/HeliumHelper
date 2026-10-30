@@ -1,4 +1,4 @@
-export type { Actor, ActorUser } from './actor.js';
+export { type Actor, type ActorUser, getRequestActor } from './actor.js';
 export {
   AccessNotDeclaredError,
   AuthTokenExpiredError,

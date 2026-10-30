@@ -21,14 +21,22 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['src/**/*.ts'],
-      exclude: ['src/**/*.spec.ts', 'src/**/*.int-spec.ts', 'src/main.ts', 'src/migrate.ts'],
+      exclude: [
+        'src/**/*.spec.ts',
+        'src/**/*.int-spec.ts',
+        'src/main.ts',
+        'src/worker.ts',
+        'src/migrate.ts',
+        'src/export-schedules.ts',
+        'src/seed.ts',
+      ],
       reporter: ['text', 'html', 'lcov'],
       reportsDirectory: 'coverage',
     },
     projects: [
       {
         extends: true,
-        test: { name: 'unit', include: ['src/**/*.spec.ts', 'eslint/**/*.spec.ts'] },
+        test: { name: 'unit', include: ['src/**/*.spec.ts', 'eslint/**/*.spec.ts', 'deploy/**/*.spec.ts'] },
       },
       {
         extends: true,

@@ -1,0 +1,67 @@
+# Releases one image to one environment; called by deploy.yml. The order of the steps is in
+# deploy/scripts/release.sh (base stacks, migrations, then services).
+name: release
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: staging or production (also a GitHub environment, holding AWS_DEPLOY_ROLE_ARN)
+        type: string
+        required: true
+      image_tag:
+        description: The image to release (a commit SHA)
+        type: string
+        required: true
+      push_image:
+        description: Push the image built in this run to the environment's ECR repository first
+        type: boolean
+        required: true
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    environment: ${{ inputs.environment }}
+    env:
+      AWS_REGION: ap-south-1
+      REPOSITORY: helium-${{ inputs.environment }}-backend
+      IMAGE_TAG: ${{ inputs.image_tag }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - if: inputs.push_image
+        uses: actions/download-artifact@v8
+        with:
+          name: image
+      - name: Push the image (once per tag; tags are immutable)
+        if: inputs.push_image
+        run: |
+          if aws ecr describe-images --repository-name "${REPOSITORY}" --image-ids imageTag="${IMAGE_TAG}" >/dev/null 2>&1; then
+            echo "${IMAGE_TAG} is already in ${REPOSITORY}"
+          else
+            target="${{ steps.ecr.outputs.registry }}/${REPOSITORY}:${IMAGE_TAG}"
+            gunzip -c image.tar.gz | docker load
+            docker tag "helium-backend:${IMAGE_TAG}" "${target}"
+            docker push "${target}"
+          fi
+
+      - name: Release (base stacks, migrations, services)
+        run: deploy/scripts/release.sh "${{ inputs.environment }}" "${IMAGE_TAG}"

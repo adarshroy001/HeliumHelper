@@ -3,6 +3,9 @@ import { AuthModule } from './common/auth/index.js';
 import { ConfigModule } from './config/index.js';
 import { DatabaseModule } from './infrastructure/database/index.js';
 import { HealthModule } from './infrastructure/health/health.module.js';
+import { QueueModule } from './infrastructure/queue/index.js';
+import { RateLimitModule } from './infrastructure/rate-limit/index.js';
+import { RedisModule } from './infrastructure/redis/index.js';
 import { HttpErrorsModule } from './infrastructure/http/http-errors.module.js';
 import { LoggerModule } from './infrastructure/logger/logger.module.js';
 import { RequestContextModule } from './infrastructure/request-context/request-context.module.js';
@@ -16,6 +19,10 @@ import { RequestContextModule } from './infrastructure/request-context/request-c
     HttpErrorsModule,
     AuthModule,
     DatabaseModule,
+    RedisModule,
+    QueueModule,
+    // After AuthModule: its guards run first, so limits count per verified caller.
+    RateLimitModule,
     HealthModule,
   ],
 })
