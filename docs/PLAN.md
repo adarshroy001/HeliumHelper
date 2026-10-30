@@ -396,7 +396,7 @@ The detailed design is in the Helium-Production repo under `docs/architecture/me
 
 | Item | Needed by | Owner |
 | --- | --- | --- |
-| ~~GitHub repo location and who reviews PRs~~ Resolved: github.com/adarshroy001/HeliumHelper, reviewer adarshroy001 (add more in CODEOWNERS) | F5 | Done |
+| ~~GitHub repo location and who reviews PRs~~ Resolved: github.com/adarshroy001/HeliumHelper, no reviewers requested automatically (CODEOWNERS removed) | F5 | Done |
 | AWS: separate staging account or prefixed stacks in one account | F23 | You |
 | DocumentDB admin access to create the `messaging` database and users | F24 | You |
 | Meta: a staging app and a test number | M5 | You |
