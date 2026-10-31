@@ -340,4 +340,14 @@ export class DeliveriesRepository {
       .exec();
     return Object.fromEntries(rows.map((r) => [r._id, r.n]));
   }
+
+  /** One phone's messages from us, newest first, before `before` (the contact timeline). */
+  async timeline(phone: string, before: Date | undefined, limit: number): Promise<Delivery[]> {
+    return this.model
+      .find({ to: phone, ...(before === undefined ? {} : { createdAt: { $lt: before } }) })
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean<Delivery[]>()
+      .exec();
+  }
 }

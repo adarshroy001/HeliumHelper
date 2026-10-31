@@ -5,7 +5,9 @@ import { DB } from '../../infrastructure/database/index.js';
 import { AuditModule } from '../audit/index.js';
 import { AccountsService } from './accounts.service.js';
 import { MediaService } from './api/media.service.js';
+import { ContactsRepository } from './data/contacts.repository.js';
 import { MediaRepository } from './data/media.repository.js';
+import { InboxService } from './inbox/inbox.service.js';
 import { CampaignInsights } from './ledger/campaign-insights.js';
 import { DeliveryLedger } from './ledger/delivery-ledger.js';
 import { SuppressionsService } from './suppressions/suppressions.service.js';
@@ -84,6 +86,8 @@ import { GraphClient } from './whatsapp/graph-client.js';
     UnmatchedStatusesRepository,
     TemplatesRepository,
     MediaRepository,
+    ContactsRepository,
+    InboxService,
     MediaService,
     DeliveryLedger,
     CampaignInsights,
@@ -125,6 +129,7 @@ import { GraphClient } from './whatsapp/graph-client.js';
     DeliveryLedger,
     CampaignInsights,
     SuppressionsService,
+    InboxService,
   ],
 })
 export class MessagingModule {}

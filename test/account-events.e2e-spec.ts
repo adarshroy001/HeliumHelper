@@ -84,9 +84,11 @@ describe('account events and template sync (API webhook, worker, mock-meta)', ()
       quality: 'GREEN',
       accountId: 'main',
     });
-    expect(await db.collection('wa_accounts').findOne({ _id: 'main' as never })).toMatchObject({
-      quality: 'GREEN',
-    });
+    // The number's quality is written just after the templates.
+    await eventually(
+      async () =>
+        (await db.collection('wa_accounts').findOne({ _id: 'main' as never }))?.['quality'] === 'GREEN',
+    );
 
     await fetch(`${meta.url}/_sim/templates`, {
       method: 'PUT',

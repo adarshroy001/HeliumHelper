@@ -87,3 +87,29 @@ export class MediaUploadFailedError extends AppError {
     });
   }
 }
+
+/** 422: free text is only allowed within 24 hours of the customer's last message. */
+export class ServiceWindowClosedError extends AppError {
+  readonly status = HttpStatus.UNPROCESSABLE_ENTITY;
+
+  constructor(phone: string) {
+    super(
+      'SERVICE_WINDOW_CLOSED',
+      'The customer has not written in the last 24 hours: send a template instead.',
+      {
+        details: { phone },
+      },
+    );
+  }
+}
+
+/** 422: only approved templates can be sent. */
+export class TemplateNotApprovedError extends AppError {
+  readonly status = HttpStatus.UNPROCESSABLE_ENTITY;
+
+  constructor(templateId: string, status: string) {
+    super('TEMPLATE_NOT_APPROVED', 'This template is not approved by WhatsApp.', {
+      details: { templateId, status },
+    });
+  }
+}

@@ -57,20 +57,20 @@ HeliumAdmin has no admin roles yet, so it sends `admin` for every admin user. Th
 
 | Method and path | Permission | Does |
 | --- | --- | --- |
-| `GET /conversations?unread=&after=` | `inbox:read` | Conversation list, latest first |
-| `GET /contacts/:phone` | `inbox:read` | Profile (from the main DB) and timeline: deliveries and inbound messages |
+| `GET /conversations?unread=&before=&limit=` | `inbox:read` | Conversation list, latest first; `unread=true` for those with unread replies |
+| `GET /contacts/:phone?before=&limit=` | `inbox:read` | Profile (from the main DB), unread count, service window, suppression, and the timeline: sent and received messages merged, newest first |
 | `POST /contacts/:phone/read` | `inbox:read` | Mark the conversation read |
-| `POST /contacts/:phone/messages` | `inbox:send` | Send a template, or free text inside the 24-hour window |
+| `POST /contacts/:phone/messages` | `inbox:send` | `{ text }` (inside the 24-hour window, else 422 `SERVICE_WINDOW_CLOSED`) or `{ template: { templateId, header?, body?, buttons?, headerMediaId? } }` (approved only, else 422 `TEMPLATE_NOT_APPROVED`); queued on `wa-send-p1`, 202 with the delivery ID |
 | `GET /contacts?q=` | `inbox:read` | Search users and known numbers |
 
 ## Suppressions
 
 | Method and path | Permission | Does |
 | --- | --- | --- |
-| `GET /suppressions?after=` | `inbox:read` | List |
+| `GET /suppressions?after=&limit=` | `inbox:read` | List, by phone |
 | `PUT /suppressions/:phone` | `suppressions:write` | Add |
 | `DELETE /suppressions/:phone` | `suppressions:write` | Remove |
-| `POST /suppressions/import` | `suppressions:write` | Import a CSV of phones |
+| `POST /suppressions/import` | `suppressions:write` | Import a CSV or text file of phones (multipart, `file`); returns how many were new and the tokens that weren't phones |
 
 ## Operations
 

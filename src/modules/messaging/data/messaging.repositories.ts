@@ -65,6 +65,16 @@ export class InboundMessagesRepository {
     @InjectModel(InboundMessage.name, DB.messaging) private readonly model: Model<InboundMessage>,
   ) {}
 
+  /** One phone's messages to us, newest first, before `before`. */
+  async timeline(phone: string, before: Date | undefined, limit: number): Promise<InboundMessage[]> {
+    return this.model
+      .find({ from: phone, ...(before === undefined ? {} : { receivedAt: { $lt: before } }) })
+      .sort({ receivedAt: -1 })
+      .limit(limit)
+      .lean<InboundMessage[]>()
+      .exec();
+  }
+
   /** A campaign's replies, newest first, before `before`. */
   async campaignReplies(
     campaignId: string,
@@ -140,6 +150,23 @@ export class ConversationsRepository {
     );
   }
 
+  /** The inbox: conversations by latest message, newest first; only those with unread replies if asked. */
+  async list(unreadOnly: boolean, before: Date | undefined, limit: number): Promise<Conversation[]> {
+    return this.model
+      .find({
+        ...(unreadOnly ? { unread: { $gt: 0 } } : {}),
+        ...(before === undefined ? {} : { lastMessageAt: { $lt: before } }),
+      })
+      .sort({ lastMessageAt: -1 })
+      .limit(limit)
+      .lean<Conversation[]>()
+      .exec();
+  }
+
+  async findByPhone(phone: string): Promise<Conversation | null> {
+    return this.model.findById(phone).lean<Conversation>().exec();
+  }
+
   async markRead(phone: string): Promise<void> {
     await this.model.updateOne({ _id: phone }, { $set: { unread: 0 } }).exec();
   }
@@ -161,6 +188,20 @@ export class SuppressionsRepository {
       { ordered: false },
     );
     return result.upsertedCount;
+  }
+
+  /** One page of the list, by phone, after `after`. */
+  async list(after: string | undefined, limit: number): Promise<Suppression[]> {
+    return this.model
+      .find(after === undefined ? {} : { _id: { $gt: after } })
+      .sort({ _id: 1 })
+      .limit(limit)
+      .lean<Suppression[]>()
+      .exec();
+  }
+
+  async findByPhone(phone: string): Promise<Suppression | null> {
+    return this.model.findById(phone).lean<Suppression>().exec();
   }
 
   async remove(phone: string): Promise<boolean> {
