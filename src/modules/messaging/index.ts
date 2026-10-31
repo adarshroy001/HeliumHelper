@@ -21,3 +21,4 @@ export {
   type TemplateVariable,
   type VariableMapping,
 } from './whatsapp/template.js';
+export { suppressionsReloadSchedule, templatesSyncSchedule } from './jobs/messaging-jobs.js';

@@ -172,13 +172,15 @@ For each inbound message:
 
 | Event | Action |
 | --- | --- |
-| Template `PAUSED`, `DISABLED`, `REJECTED` | Update `templates`; pause the campaigns using it; alert |
+| Template `PAUSED`, `DISABLED`, `REJECTED`, `PENDING_DELETION` | Update `templates`; pause the sending campaigns using it (`wa:tpl-camps:{name:language}`, registered by the campaign lifecycle); log an error |
 | Template quality or category change | Update `templates` |
-| Phone number quality RED | Pause marketing on that number |
-| `business_capability_update` | Refresh the portfolio's messaging limit |
-| Account restricted or banned | Pause the account; alert |
+| Phone number quality `FLAGGED` or `DOWNGRADE` | Pause marketing on the account (`wa:mkt-paused:{main}`): the p2 sender's gate closes, p1 continues. `UNFLAGGED` or `UPGRADE` lifts it |
+| `business_capability_update` | Store the portfolio's messaging limit (`wa:limit:{portfolioId}`, and on the account) for the feeder |
+| Account restricted, banned or disabled | Pause the account (`wa:acct-paused:{main}` and `wa_accounts`); log an error |
 
-Templates are also synced from Meta every 15 minutes and on demand.
+How the messaging module pauses a campaign without depending on the campaigns module: `CampaignSignals.pause()` moves the campaign's Redis state from `sending` to `paused` (the sender obeys within a second) and writes the reason to `wa:camp-pause:{campaignId}`, which the campaign sweeper records on the campaign.
+
+Housekeeping runs on the `messaging-jobs` queue (one message type, `messaging.job.run`, naming the job): template sync every 15 minutes (it also refreshes the number's quality and limit), and a reload of the suppression mirror into Redis every 10 minutes (it only adds; removals are applied to Redis by the API).
 
 ## Campaigns
 

@@ -4,9 +4,8 @@ import { PinoLogger } from 'nestjs-pino';
 import { maskPhone } from '../../../common/utils/mask-phone.js';
 import { whatsappConfig, type WhatsappConfig } from '../../../config/index.js';
 import { ack, hold, retry, type Outcome } from '../../../infrastructure/queue/index.js';
-import { MAIN_ACCOUNT_ID } from '../accounts.service.js';
+import { AccountsService, MAIN_ACCOUNT_ID } from '../accounts.service.js';
 import type { SendOutcome } from '../data/deliveries.repository.js';
-import { AccountsRepository } from '../data/messaging.repositories.js';
 import { keys } from '../messaging.keys.js';
 import type { DeliverySendData } from '../messaging.messages.js';
 import { GraphClient, type SendResult } from '../whatsapp/graph-client.js';
@@ -17,6 +16,7 @@ import {
   retryDelaySeconds,
 } from '../whatsapp/meta-errors.js';
 import { deliveryRef } from '../statuses/delivery-ref.js';
+import { CampaignSignals } from './campaign-signals.js';
 import { type Priority, RateLimiter } from './rate-limiter.js';
 import { SendFlusher } from './send-flusher.js';
 
@@ -42,16 +42,24 @@ export class SenderService {
     private readonly graph: GraphClient,
     private readonly limiter: RateLimiter,
     private readonly flusher: SendFlusher,
-    private readonly accounts: AccountsRepository,
+    private readonly accountsService: AccountsService,
+    private readonly signals: CampaignSignals,
     private readonly logger: PinoLogger,
   ) {
     logger.setContext(SenderService.name);
   }
 
-  /** The gate before each receive: nothing is taken off the queue while sending is switched off. */
-  async canSend(): Promise<boolean> {
-    const [kill, paused] = await this.redis.mget(keys.killSwitch(), keys.accountPaused(MAIN_ACCOUNT_ID));
-    return kill === null && paused === null;
+  /**
+   * The gate before each receive: nothing is taken off the queue while sending is switched off, the account is
+   * paused, or (for campaign sends) marketing is paused on the account.
+   */
+  async canSend(priority: Priority): Promise<boolean> {
+    const [kill, paused, marketing] = await this.redis.mget(
+      keys.killSwitch(),
+      keys.accountPaused(MAIN_ACCOUNT_ID),
+      keys.marketingPaused(MAIN_ACCOUNT_ID),
+    );
+    return kill === null && paused === null && (priority === 1 || marketing === null);
   }
 
   async send(data: DeliverySendData, priority: Priority, receiveCount: number): Promise<Outcome> {
@@ -165,7 +173,7 @@ export class SenderService {
       case 'fatal':
         this.logger.error(log, 'fatal Meta error');
         if (result.fatalScope === 'account') {
-          await this.pauseAccount(result.detail);
+          await this.accountsService.pause(result.detail);
           return hold(900);
         }
         if (campaignId === undefined || priority === 1) return failed(result.detail);
@@ -188,18 +196,9 @@ export class SenderService {
     return state;
   }
 
-  private async pauseAccount(reason: string): Promise<void> {
-    await this.redis.set(keys.accountPaused(MAIN_ACCOUNT_ID), reason);
-    await this.accounts.setStatus(MAIN_ACCOUNT_ID, 'paused', reason);
-  }
-
-  /** The campaign sweeper turns the request into a paused campaign with this reason. */
+  /** The campaign sweeper turns the pause request into a paused campaign with this reason. */
   private async pauseCampaign(campaignId: string, reason: string): Promise<void> {
-    await this.redis
-      .multi()
-      .set(keys.campaignState(campaignId), 'paused')
-      .set(keys.campaignPauseRequest(campaignId), reason)
-      .exec();
+    await this.signals.pause(campaignId, reason);
     this.states.delete(campaignId);
   }
 

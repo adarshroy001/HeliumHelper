@@ -55,4 +55,10 @@ export const QUEUES: readonly QueueDefinition[] = [
     maxReceiveCount: 15,
     alarms: { oldestMessageSeconds: 15 * 60, dlqMessages: 1 },
   },
+  {
+    name: 'messaging-jobs',
+    visibilitySeconds: 120,
+    maxReceiveCount: 5,
+    alarms: { oldestMessageSeconds: 30 * 60, dlqMessages: 1 },
+  },
 ];

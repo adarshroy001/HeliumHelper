@@ -27,6 +27,12 @@ export const keys = {
   serviceWindow: (phone: string) => redisKey('wa', 'csw', phone),
   /** The first button each recipient tapped (deliveryId → button), so a poll counts one vote per person. */
   votes: (campaignId: string) => redisKey('wa', 'vote', campaignId),
+  /** Campaigns sending with a template (`name:language`), registered by the campaign lifecycle. */
+  templateCampaigns: (name: string, language: string) => redisKey('wa', 'tpl-camps', `${name}:${language}`),
+  /** Marketing stopped on an account (phone quality flagged); direct sends and replies continue. */
+  marketingPaused: (accountId: string) => redisKey('wa', 'mkt-paused', accountId),
+  /** The business portfolio's daily messaging limit (unique users), from Meta's capability events. */
+  messagingLimit: (portfolioId: string) => redisKey('wa', 'limit', portfolioId),
   /** Recipients of a campaign who opted out by replying to it (deliveryId → 1), counted once each. */
   optOuts: (campaignId: string) => redisKey('wa', 'optout', campaignId),
   /** Poll results: button → votes. */

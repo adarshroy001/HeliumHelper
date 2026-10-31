@@ -7,6 +7,7 @@ import {
   Conversation,
   InboundMessage,
   Suppression,
+  Template,
   UnmatchedStatus,
   WaAccount,
 } from './messaging.schemas.js';
@@ -181,5 +182,54 @@ export class UnmatchedStatusesRepository {
       statuses.map((s) => ({ ...s, expireAt })),
       { ordered: false },
     );
+  }
+}
+
+/** The only code that writes `templates`: a mirror of Meta's templates, refreshed by sync and Meta's events. */
+@Injectable()
+export class TemplatesRepository {
+  constructor(@InjectModel(Template.name, DB.messaging) private readonly model: Model<Template>) {}
+
+  /** Makes the mirror match Meta: templates Meta no longer returns are removed, the rest upserted. */
+  async replaceAll(
+    accountId: string,
+    templates: readonly Omit<Template, 'syncedAt' | 'accountId'>[],
+  ): Promise<number> {
+    const now = new Date();
+    // Removed first: a template deleted and recreated with the same name gets a new ID.
+    await this.model.deleteMany({ accountId, _id: { $nin: templates.map((t) => t._id) } }).exec();
+    if (templates.length > 0) {
+      await this.model.bulkWrite(
+        templates.map(({ _id, ...fields }) => ({
+          updateOne: {
+            filter: { _id },
+            update: { $set: { ...fields, accountId, syncedAt: now } },
+            upsert: true,
+          },
+        })),
+        { ordered: false },
+      );
+    }
+    return templates.length;
+  }
+
+  /** Applies one field Meta changed (status, quality or category); unknown templates wait for the next sync. */
+  async update(
+    id: string,
+    fields: Partial<Pick<Template, 'status' | 'quality' | 'category'>>,
+  ): Promise<void> {
+    await this.model.updateOne({ _id: id }, { $set: { ...fields, syncedAt: new Date() } }).exec();
+  }
+
+  async find(accountId: string, name: string, language: string): Promise<Template | null> {
+    return this.model.findOne({ accountId, name, language }).lean<Template>().exec();
+  }
+
+  async list(accountId: string, status?: string): Promise<Template[]> {
+    return this.model
+      .find({ accountId, ...(status === undefined ? {} : { status }) })
+      .sort({ name: 1, language: 1 })
+      .lean<Template[]>()
+      .exec();
   }
 }

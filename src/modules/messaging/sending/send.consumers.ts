@@ -21,7 +21,7 @@ export class SendP1Consumer implements MessageHandler<DeliverySendData> {
   constructor(private readonly sender: SenderService) {}
 
   gate(): Promise<boolean> {
-    return this.sender.canSend();
+    return this.sender.canSend(1);
   }
 
   handle(data: DeliverySendData, { receiveCount }: ReceivedMessage<DeliverySendData>): Promise<Outcome> {
@@ -35,7 +35,7 @@ export class SendP2Consumer implements MessageHandler<DeliverySendData> {
   constructor(private readonly sender: SenderService) {}
 
   gate(): Promise<boolean> {
-    return this.sender.canSend();
+    return this.sender.canSend(2);
   }
 
   handle(data: DeliverySendData, { receiveCount }: ReceivedMessage<DeliverySendData>): Promise<Outcome> {

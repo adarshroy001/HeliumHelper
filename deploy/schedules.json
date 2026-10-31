@@ -6,5 +6,21 @@
     "timezone": "Asia/Kolkata",
     "queue": "system-jobs",
     "input": "{\"v\":1,\"id\":\"<aws.scheduler.execution-id>\",\"type\":\"system.heartbeat.tick\",\"ts\":\"<aws.scheduler.scheduled-time>\",\"producer\":\"eventbridge-scheduler\",\"correlationId\":\"<aws.scheduler.execution-id>\",\"data\":{}}"
+  },
+  {
+    "name": "messaging-templates-sync",
+    "description": "Mirrors Meta's templates and the number's quality into the messaging database.",
+    "scheduleExpression": "cron(0/15 * * * ? *)",
+    "timezone": "Asia/Kolkata",
+    "queue": "messaging-jobs",
+    "input": "{\"v\":1,\"id\":\"<aws.scheduler.execution-id>\",\"type\":\"messaging.job.run\",\"ts\":\"<aws.scheduler.scheduled-time>\",\"producer\":\"eventbridge-scheduler\",\"correlationId\":\"<aws.scheduler.execution-id>\",\"data\":{\"job\":\"templates-sync\"}}"
+  },
+  {
+    "name": "messaging-suppressions-reload",
+    "description": "Reloads the Redis mirror of the suppression list from the database.",
+    "scheduleExpression": "cron(0/10 * * * ? *)",
+    "timezone": "Asia/Kolkata",
+    "queue": "messaging-jobs",
+    "input": "{\"v\":1,\"id\":\"<aws.scheduler.execution-id>\",\"type\":\"messaging.job.run\",\"ts\":\"<aws.scheduler.scheduled-time>\",\"producer\":\"eventbridge-scheduler\",\"correlationId\":\"<aws.scheduler.execution-id>\",\"data\":{\"job\":\"suppressions-reload\"}}"
   }
 ]

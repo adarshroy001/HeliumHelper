@@ -26,3 +26,15 @@ export class WebhookNotQueuedError extends AppError {
     });
   }
 }
+
+/** 502: Meta's API didn't answer the sync; it is tried again on the next run. */
+export class TemplateSyncFailedError extends AppError {
+  readonly status = HttpStatus.BAD_GATEWAY;
+
+  constructor(detail: string) {
+    super('TEMPLATE_SYNC_FAILED', 'Templates could not be synced from WhatsApp. Try again later.', {
+      details: { detail },
+      retryable: true,
+    });
+  }
+}

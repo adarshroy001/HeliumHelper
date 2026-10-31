@@ -48,7 +48,7 @@ The workflow and the Definition of Done for every task are in [CONVENTIONS.md](C
 | M6 | Sender | M2, M5 | Done |
 | M7 | Status consumer | M5, M6 | Done |
 | M8 | Inbound consumer and auto-reply | M7 | Done |
-| M9 | Account events and template sync | M5 | Not started |
+| M9 | Account events and template sync | M5 | Done |
 | M10 | Campaign API and uploads | M5, M9 | Not started |
 | M11 | Audience build | M10 | Not started |
 | M12 | Lifecycle, feeder and sweeper | M6, M11 | Not started |

@@ -12,6 +12,9 @@ WhatsApp messaging ([ADR-0015](../../../docs/adr/0015-whatsapp-messaging.md)): a
 | `sending/` | The sender: consumers for `wa-send-p1`/`p2`, rate limiter, result flusher, campaign counters, Lua scripts |
 | `statuses/` | The status consumer: parsing, correlation (callback data, wamid map, index), batched writes and counters |
 | `inbound/` | The inbound consumer: storing replies once, attribution, opt-out, poll votes, auto-replies |
+| `account/` | The account consumer: template, quality, limit and account events |
+| `templates/` | Template sync from Meta |
+| `jobs/` | Scheduled housekeeping on `messaging-jobs` |
 
 ## Owns
 
@@ -31,6 +34,11 @@ WhatsApp messaging ([ADR-0015](../../../docs/adr/0015-whatsapp-messaging.md)): a
 | Consumer | `StatusConsumer` on `wa-status` | Unmatched statuses are retried 5 times, 30 s apart, then kept in `unmatched_statuses` |
 | Consumer | `InboundConsumer` on `wa-inbound` | Idempotent by wamid; auto-replies go out on `wa-send-p1` |
 | Redis | `wa:csw` (service window, 24 h), `wa:vote`, `wa:btn`, `wa:optout`, `wa:autoreply` (per campaign) | `wa:autoreply` is written by the campaign lifecycle (M12) |
+| Consumer | `AccountConsumer` on `wa-account`; `MessagingJobsConsumer` on `messaging-jobs` | |
+| Schedule | `messaging-templates-sync` (15 min), `messaging-suppressions-reload` (10 min) | Message `messaging.job.run` |
+| Redis | `wa:tpl-camps:{name:language}`, `wa:mkt-paused:{account}`, `wa:limit:{portfolio}` | Template users, marketing pause, daily limit |
+| Exports | `CampaignCounters`, `CampaignSignals`, `TemplatesService`, `AccountsService`, `GraphClient` | For the campaigns module |
+| Error | `TEMPLATE_SYNC_FAILED` (502, retryable) | |
 
 More collections, queues, routes and error codes are added by M4–M15 and listed here as they land.
 

@@ -10,6 +10,7 @@ import {
   ConversationsRepository,
   InboundMessagesRepository,
   SuppressionsRepository,
+  TemplatesRepository,
   UnmatchedStatusesRepository,
 } from './data/messaging.repositories.js';
 import {
@@ -33,7 +34,12 @@ import { RateLimiter } from './sending/rate-limiter.js';
 import { SendP1Consumer, SendP2Consumer } from './sending/send.consumers.js';
 import { SendFlusher } from './sending/send-flusher.js';
 import { SenderService } from './sending/sender.service.js';
+import { AccountEventsService } from './account/account-events.service.js';
+import { AccountConsumer } from './account/account.consumer.js';
 import { InboundConsumer } from './inbound/inbound.consumer.js';
+import { MessagingJobsConsumer } from './jobs/messaging-jobs.consumer.js';
+import { CampaignSignals } from './sending/campaign-signals.js';
+import { TemplatesService } from './templates/templates.service.js';
 import { InboundService } from './inbound/inbound.service.js';
 import { StatusConsumer } from './statuses/status.consumer.js';
 import { StatusService } from './statuses/status.service.js';
@@ -68,7 +74,13 @@ import { GraphClient } from './whatsapp/graph-client.js';
     ConversationsRepository,
     SuppressionsRepository,
     UnmatchedStatusesRepository,
+    TemplatesRepository,
     CampaignCounters,
+    CampaignSignals,
+    TemplatesService,
+    AccountEventsService,
+    AccountConsumer,
+    MessagingJobsConsumer,
     RateLimiter,
     SendFlusher,
     SenderService,
@@ -89,6 +101,6 @@ import { GraphClient } from './whatsapp/graph-client.js';
         }),
     },
   ],
-  exports: [GraphClient, CampaignCounters],
+  exports: [GraphClient, CampaignCounters, CampaignSignals, TemplatesService, AccountsService],
 })
 export class MessagingModule {}
