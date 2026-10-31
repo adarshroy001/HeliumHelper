@@ -269,6 +269,9 @@ describe('audience build (API, worker, main and messaging databases)', () => {
       return c.status === 'build_failed' ? c : null;
     });
     expect(failed.totals).toMatchObject({ total: 0, skipped: { suppressed: 1 } });
+    // The API says why, from the build record.
+    const shown = await api$('get', `/campaigns/${created.id}`);
+    expect(typeof (shown.body as { buildError: unknown }).buildError).toBe('string');
   });
 
   it('lists filter options from the data', async () => {

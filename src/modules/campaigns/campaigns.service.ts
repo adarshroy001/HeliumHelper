@@ -35,6 +35,7 @@ export function campaignView(c: CampaignDocument) {
     totals: c.totals ?? null,
     pauseReason: c.pauseReason ?? null,
     stopReason: c.stopReason ?? null,
+    buildError: c.status === 'build_failed' ? (c.build?.error ?? null) : null,
     createdBy: c.createdBy,
     createdAt: c.createdAt,
     updatedAt: c.updatedAt,

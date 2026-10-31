@@ -56,7 +56,7 @@ The workflow and the Definition of Done for every task are in [CONVENTIONS.md](C
 | M14 | Inbox, direct messages and suppressions | M8 | Done |
 | M15 | Messaging operations | M12 | Done |
 | M16 | End-to-end and load test (local) | M13–M15 | Done |
-| M17 | HeliumAdmin integration | M16 | Not started |
+| M17 | HeliumAdmin integration | M16 | Done (HeliumAdmin branch `feat/messaging-engine`) |
 | M18 | Rollout | M17, F25, F26 | Not started (needs AWS) |
 
 Where the dependencies allow, tasks may be done in a different order. The order above is the default.
@@ -547,6 +547,7 @@ The design is in [docs/modules/messaging/](modules/messaging/README.md), with th
     - A backend client in HeliumAdmin (service token with the admin in `act`).
     - Campaign, inbox and ops screens calling the API, including the new features; behind a `MESSAGING_ENGINE` flag, with v1 campaigns read-only.
 - **Done when:** with the flag on, a campaign can be created, built, tested, scheduled, run, paused, stopped and exported against the local backend and mock-meta.
+- **Result:** HeliumAdmin `/messaging` (campaigns, composer, campaign page, inbox, opt-outs, operations) through one proxy route, `/api/messaging/*`; every step above checked in a browser against the local backend and mock-meta.
 
 ### M18 · Rollout
 

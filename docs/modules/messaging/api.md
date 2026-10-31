@@ -3,7 +3,7 @@
 Internal routes under `/internal/v1`, called by HeliumAdmin with a service token that carries the admin user in its `act` claim ([ADR-0010](../../adr/0010-auth-and-access.md)). Request and response schemas are in the OpenAPI document at `/docs`.
 
 - **Every mutating route** takes an `Idempotency-Key` header (`@Idempotent()`) and writes to `audit_log`.
-- **Lists** use cursor paging (`after`, `limit`, default 50, maximum 200).
+- **Lists** are paged: `GET /campaigns` with `cursor` and `limit` (`nextCursor`); recipients and suppressions with `after` (`nextAfter`); conversations, timelines and replies with `before` (`nextBefore`).
 - **Errors** use the standard error contract; module error codes are listed in each module's README.
 
 ## Permissions and roles
@@ -26,7 +26,7 @@ HeliumAdmin has no admin roles yet, so it sends `admin` for every admin user. Th
 | --- | --- | --- |
 | `GET /campaigns?status=&q=` | `campaigns:read` | List, newest first |
 | `POST /campaigns` | `campaigns:write` | Create a draft (template, mapping, header media, audience, options, auto-reply validated) |
-| `GET /campaigns/:id` | `campaigns:read` | Read one, with totals, skipped counts and state |
+| `GET /campaigns/:id` | `campaigns:read` | Read one, with totals, skipped counts and state; `buildError` says why a build failed |
 | `PATCH /campaigns/:id` | `campaigns:write` | Edit a draft |
 | `DELETE /campaigns/:id` | `campaigns:write` | Delete a draft |
 | `POST /campaigns/:id/duplicate` | `campaigns:write` | A new draft with the same setup |
