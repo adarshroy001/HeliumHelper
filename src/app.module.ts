@@ -9,7 +9,7 @@ import { RedisModule } from './infrastructure/redis/index.js';
 import { HttpErrorsModule } from './infrastructure/http/http-errors.module.js';
 import { LoggerModule } from './infrastructure/logger/logger.module.js';
 import { RequestContextModule } from './infrastructure/request-context/request-context.module.js';
-import { MessagingModule } from './modules/messaging/index.js';
+import { MessagingApiModule } from './modules/messaging/index.js';
 
 /** Root module of the API process: composes infrastructure and business modules. */
 @Module({
@@ -25,7 +25,7 @@ import { MessagingModule } from './modules/messaging/index.js';
     // After AuthModule: its guards run first, so limits count per verified caller.
     RateLimitModule,
     HealthModule,
-    MessagingModule,
+    MessagingApiModule,
   ],
 })
 export class AppModule {}

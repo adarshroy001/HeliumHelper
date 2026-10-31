@@ -1,3 +1,4 @@
+export { MessagingApiModule } from './messaging-api.module.js';
 export { MessagingModule } from './messaging.module.js';
 export {
   GraphClient,

@@ -44,7 +44,7 @@ The workflow and the Definition of Done for every task are in [CONVENTIONS.md](C
 | M2 | WhatsApp building blocks | M1 | Done |
 | M3 | Webhook intake | M2 | Done |
 | M4 | mock-meta | M2 | Done |
-| M5 | Messaging data model | M1 | Not started |
+| M5 | Messaging data model | M1 | Done |
 | M6 | Sender | M2, M5 | Not started |
 | M7 | Status consumer | M5, M6 | Not started |
 | M8 | Inbound consumer and auto-reply | M7 | Not started |
@@ -433,7 +433,7 @@ The design is in [docs/modules/messaging/](modules/messaging/README.md), with th
     - Mongoose schemas and repositories for accounts, templates, media, deliveries, inbound messages, conversations, suppressions and unmatched statuses (`campaigns` and `exports` come with M10 and M13).
     - A migration that creates the collections and indexes.
     - The WhatsApp account seeded from config at start (one account today).
-    - `pnpm seed` adds sample templates and a test audience.
+    - Templates are filled by the sync (M9); test audiences are seeded with the audience build (M11).
 - **Done when:** the migration applies on an empty database and again with no changes; repository integration tests cover the bulk writers and their conditions.
 
 ### M6 · Sender

@@ -8,6 +8,7 @@ WhatsApp messaging ([ADR-0015](../../../docs/adr/0015-whatsapp-messaging.md)): a
 | --- | --- |
 | `whatsapp/` | Plain TypeScript for Meta, with no Nest or database: the Graph client, error classification, phone normalization, template helpers, webhook signature and splitting. A Lambda can import these |
 | `webhooks/` | The webhook route and the intake service that queues each change |
+| `data/` | Schemas and repositories: the only code that touches the module's collections |
 
 ## Owns
 
@@ -19,6 +20,8 @@ WhatsApp messaging ([ADR-0015](../../../docs/adr/0015-whatsapp-messaging.md)): a
 | Queue | `wa-status`, `wa-inbound`, `wa-account` (+ `-dlq`) | Webhook changes by kind |
 | Message | `wa.webhook.status`, `wa.webhook.inbound`, `wa.webhook.account` | `{ receivedAt, wabaId, phoneNumberId?, field, value }` |
 | Error | `WEBHOOK_SIGNATURE_INVALID` (401), `WEBHOOK_VERIFICATION_FAILED` (403), `WEBHOOK_NOT_QUEUED` (503) | |
+| Collection | `wa_accounts`, `templates`, `media`, `deliveries`, `inbound_messages`, `conversations`, `suppressions`, `unmatched_statuses` | Migration 0002; fields and indexes in [data-model.md](../../../docs/modules/messaging/data-model.md) |
+| Modules | `MessagingModule` (both processes), `MessagingApiModule` (API routes) | The worker imports only the first |
 
 More collections, queues, routes and error codes are added by M4–M15 and listed here as they land.
 
@@ -31,3 +34,5 @@ More collections, queues, routes and error codes are added by M4–M15 and liste
 - **Phones** are stored and sent as `91` + 10 digits (`normalizePhone`). Log them only through `maskPhone()`.
 - **Meta errors** are classified once, in `whatsapp/meta-errors.ts`. Add a new code to its table rather than handling it elsewhere.
 - **Template values** fall back to "Customer" when missing, as in HeliumAdmin.
+- **Delivery writes are guarded by `statusRank`**: a status applies only over a lower rank, so duplicate and out-of-order webhooks change nothing. `failed` applies below `delivered`; `skipped` only from `pending`.
+- **The account** (`main`) is created from `WA_*` config at start; its pause state, quality and limit come from Meta's events and are never reset by config.
