@@ -89,6 +89,24 @@ Redeploying after a secret change: rerun the last successful `deploy` workflow r
 
 Alarms go to the SNS topic `helium-<env>-alarms`: by email for now, to Slack once AWS Chatbot is connected to the team channel.
 
+## Messaging
+
+The operations routes need the `messaging:ops` permission (the `admin` role). Everything below works locally too, against mock-meta.
+
+| Situation | What to do |
+| --- | --- |
+| **Stop all sending now** | `PUT /internal/v1/ops/messaging/kill-switch {"on": true}`. Within a second no message is sent; queued ones wait. Undo with `{"on": false}`. Fallback without the API: `SET cfg:wa-pause:{global} 1` in Redis |
+| **See what's happening** | `GET /internal/v1/ops/messaging`: queue and DLQ depths, the kill switch, the account (paused? why?), marketing paused (quality), the number's current rate and any pause, sends whose result is unknown, active campaigns |
+| **A DLQ has messages** | Read a few in the SQS console (parked messages carry `parkReason`), search the logs by their `messageId`, fix the cause, then `POST /internal/v1/ops/queues/<queue>/redrive` (up to 1,000 per call) and watch the DLQ drain |
+| **Account paused** (token expired, restricted) | Fix the cause (rotate `WA_ACCESS_TOKEN`, or resolve the restriction with Meta), then `POST /internal/v1/ops/accounts/main/resume`. Paused campaigns stay paused: resume each |
+| **Template paused or rejected by Meta** | Campaigns using it are paused with the reason. Fix or replace the template in WhatsApp Manager, sync (`POST /internal/v1/templates/sync`), then resume the campaigns |
+| **Marketing paused** (phone quality flagged) | Lifted automatically when Meta reports the quality restored. Meanwhile review recent campaigns' opt-out and block rates |
+| **Redis lost its data** (failover, flush) | Counters and ranks are rebuilt from the database: `POST /internal/v1/ops/campaigns/<id>/reconcile` for each sending or recently finished campaign. Sending campaigns are re-activated; claims prevent duplicates for anything already sent. The suppression mirror is reloaded every 10 minutes |
+| **A campaign looks stuck** | `GET /internal/v1/campaigns/<id>/stats`: `waiting` says why the feeder holds it back (send window, daily limit, marketing paused); `inFlight` shows sends without a result. A build with no heartbeat for 5 minutes is re-queued by the sweeper |
+| **A send's result is unknown** | Nothing to do: after 15 minutes the settler checks for a status from Meta; without one it sends once more, and fails it (`unconfirmed`) if that is unknown too |
+
+Worker processes run what `WORKER_QUEUES` names: the queues, plus the `campaign-feeder` loop (one leader across all workers). In AWS the worker service runs `*`.
+
 ## Useful log searches (CloudWatch Logs Insights)
 
 ```text

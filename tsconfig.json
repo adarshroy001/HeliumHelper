@@ -20,7 +20,10 @@
 
     "rootDir": ".",
     "noEmit": true,
+    // Tests import tools that run on Node's type stripping (tools/mock-meta). The build turns this off, so app
+    // code still imports `.js` (R16).
+    "allowImportingTsExtensions": true,
     "skipLibCheck": true
   },
-  "include": ["src", "test", "eslint", "scripts", "vitest.config.ts"]
+  "include": ["src", "test", "eslint", "scripts", "tools", "vitest.config.ts"]
 }

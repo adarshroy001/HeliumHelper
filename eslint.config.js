@@ -69,7 +69,7 @@ export default defineConfig(
               name: '@nestjs/common',
               importNames: ['Controller'],
               message:
-                'Use InternalController from src/common/http, so routes get their audience prefix (ADR-0010).',
+                'Use InternalController or WebhookController from src/common/http, so routes get their audience prefix (ADR-0010).',
             },
           ],
           patterns: [
@@ -117,7 +117,7 @@ export default defineConfig(
   // Environment variables are read only in src/config, which validates them (CONVENTIONS R12).
   {
     files: ['**/*.ts'],
-    ignores: ['src/config/**', 'test/**', 'scripts/**', 'deploy/**', 'vitest.config.ts'],
+    ignores: ['src/config/**', 'test/**', 'scripts/**', 'deploy/**', 'tools/**', 'vitest.config.ts'],
     rules: {
       'no-restricted-properties': [
         'error',

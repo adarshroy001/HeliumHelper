@@ -1,1 +1,6 @@
-export { INTERNAL_PREFIX, InternalController } from './internal-controller.decorator.js';
+export {
+  INTERNAL_PREFIX,
+  InternalController,
+  WEBHOOKS_PREFIX,
+  WebhookController,
+} from './internal-controller.decorator.js';

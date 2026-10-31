@@ -2,13 +2,24 @@ import { Module } from '@nestjs/common';
 import { ConfigModule as NestConfigModule } from '@nestjs/config';
 import { appConfig } from './app.config.js';
 import { authConfig } from './auth.config.js';
+import { blobConfig } from './blob.config.js';
 import { databaseConfig } from './database.config.js';
 import { queueConfig } from './queue.config.js';
 import { redisConfig } from './redis.config.js';
+import { whatsappConfig } from './whatsapp.config.js';
 import { workerConfig } from './worker.config.js';
 
 /** Every config area. Add a new area's `registerAs(...)` here and its schema to `CONFIG_SCHEMAS`. */
-export const CONFIG_AREAS = [appConfig, authConfig, databaseConfig, redisConfig, queueConfig, workerConfig];
+export const CONFIG_AREAS = [
+  appConfig,
+  authConfig,
+  databaseConfig,
+  redisConfig,
+  queueConfig,
+  workerConfig,
+  whatsappConfig,
+  blobConfig,
+];
 
 /**
  * Loads `.env.local` then `.env` for local development (real environment variables win),

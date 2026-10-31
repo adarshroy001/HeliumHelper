@@ -18,3 +18,4 @@ How we write them: [ADR-0001](0001-record-architecture-decisions.md).
 | [0012](0012-testing.md) | Testing strategy | Accepted |
 | [0013](0013-logging-and-observability.md) | Logging and observability | Accepted |
 | [0014](0014-toolchain-versions.md) | Toolchain versions: NestJS 12 ESM, TypeScript 6.0, pnpm 12 | Accepted |
+| [0015](0015-whatsapp-messaging.md) | WhatsApp messaging: delivery ledger, paced feeder, shared sender | Accepted |

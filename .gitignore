@@ -10,6 +10,9 @@ cdk.out/
 .env.*
 !.env.example
 
+# Local stored files (BLOB_DIR)
+.data/
+
 # Logs
 *.log
 

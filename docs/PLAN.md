@@ -1,8 +1,8 @@
 # Delivery plan
 
-Last updated: 2026-10-28
+Last updated: 2026-10-31
 
-We build `helium-backend` one small task at a time. Each task is one branch and one PR, and ends with a review stop. The next task starts only after the previous one is approved.
+We build `helium-backend` one small task at a time, one commit (or a few) per task. Phase 1 went through a review stop per batch of tasks. Phase 2 is built end to end on one branch and raised in as few PRs as possible; AWS deployment is deferred, so everything is verified locally.
 
 - **Phase 1 (foundation)** builds the base every feature relies on.
 - **Phase 2 (messaging)** builds the WhatsApp campaign system on top of it.
@@ -18,29 +18,46 @@ The workflow and the Definition of Done for every task are in [CONVENTIONS.md](C
 | F2 | Project scaffold | F1 | Done |
 | F3 | Lint, format and git hooks | F2 | Done |
 | F4 | Test setup | F2 | Done |
-| F5 | CI pipeline and repo hygiene | F3, F4 | Done (PR #1 awaiting merge) |
+| F5 | CI pipeline and repo hygiene | F3, F4 | Done |
 | F6 | Config | F5 | Done |
 | F7 | Logging and request context | F6 | Done |
 | F8 | Error handling | F7 | Done |
 | F9 | Validation and API docs | F8 | Done |
 | F10 | HTTP setup and health | F9 | Done |
-| F11 | Authentication and access control | F10 | In review |
-| F12 | MongoDB connections and repositories | F10 | In review |
-| F13 | Migrations | F12 | In review |
-| F14 | Redis | F10 | In review |
-| F15 | Rate limiting and idempotency | F11, F14 | In review |
-| F16 | Queue publisher | F10 | In review |
-| F17 | Queue consumer runner and worker process | F16 | In review |
-| F18 | Scheduled jobs | F17 | In review |
-| F19 | Audit log | F12 | In review |
-| F20 | Local development polish | F17 | In review |
-| F21 | Skills and conventions review | F20 | In review |
-| F22 | Docker image | F17 | In review |
-| F23 | AWS foundation (CDK) | F22 | In review |
-| F24 | AWS data and queues | F23 | In review |
-| F25 | AWS services and staging deploy | F24 | In review (staging deploy needs AWS access) |
-| F26 | Deploy pipeline and runbook | F25 | In review (first deploy and rollback rehearsal need AWS access) |
-| M1–M21 | Messaging (below) | F26 | Not started |
+| F11 | Authentication and access control | F10 | Done |
+| F12 | MongoDB connections and repositories | F10 | Done |
+| F13 | Migrations | F12 | Done |
+| F14 | Redis | F10 | Done |
+| F15 | Rate limiting and idempotency | F11, F14 | Done |
+| F16 | Queue publisher | F10 | Done |
+| F17 | Queue consumer runner and worker process | F16 | Done |
+| F18 | Scheduled jobs | F17 | Done |
+| F19 | Audit log | F12 | Done |
+| F20 | Local development polish | F17 | Done |
+| F21 | Skills and conventions review | F20 | Done |
+| F22 | Docker image | F17 | Done |
+| F23 | AWS foundation (CDK) | F22 | Done |
+| F24 | AWS data and queues | F23 | Done |
+| F25 | AWS services and staging deploy | F24 | Code done; staging deploy deferred (needs AWS) |
+| F26 | Deploy pipeline and runbook | F25 | Code done; first deploy and rollback rehearsal deferred (needs AWS) |
+| M1 | Messaging design and plan | F26 | Done |
+| M2 | WhatsApp building blocks | M1 | Done |
+| M3 | Webhook intake | M2 | Done |
+| M4 | mock-meta | M2 | Done |
+| M5 | Messaging data model | M1 | Done |
+| M6 | Sender | M2, M5 | Done |
+| M7 | Status consumer | M5, M6 | Done |
+| M8 | Inbound consumer and auto-reply | M7 | Done |
+| M9 | Account events and template sync | M5 | Done |
+| M10 | Campaign API and uploads | M5, M9 | Done |
+| M11 | Audience build | M10 | Done |
+| M12 | Lifecycle, feeder and sweeper | M6, M11 | Done |
+| M13 | Campaign reads, export and attribution | M12 | Done |
+| M14 | Inbox, direct messages and suppressions | M8 | Done |
+| M15 | Messaging operations | M12 | Done |
+| M16 | End-to-end and load test (local) | M13–M15 | Done |
+| M17 | HeliumAdmin integration | M16 | Done (HeliumAdmin branch `feat/messaging-engine`) |
+| M18 | Rollout | M17, F25, F26 | Not started (needs AWS) |
 
 Where the dependencies allow, tasks may be done in a different order. The order above is the default.
 
@@ -366,31 +383,183 @@ Every foundation task follows the same rules:
 
 ## Phase 2 · Messaging (WhatsApp campaigns)
 
-The detailed design is in the Helium-Production repo under `docs/architecture/messaging-platform/` (12 docs). M1 moves it here and reconciles it with these ADRs. Each M task gets the same detailed block as the F tasks when M1 is done.
+The design is in [docs/modules/messaging/](modules/messaging/README.md), with the decisions in [ADR-0015](adr/0015-whatsapp-messaging.md). Everything through M16 is built and verified locally, against `mock-meta` instead of Meta. M17 changes HeliumAdmin; M18 needs AWS.
 
-| ID | Task | Outcome |
-| --- | --- | --- |
-| M1 | Messaging design in this repo | The 12 docs are moved to `docs/modules/messaging/` and updated for NestJS and this structure. M2–M21 get detailed task blocks |
-| M2 | WhatsApp client | Graph API client for `messages` and `marketing_messages`, with timeouts and the error classification tables |
-| M3 | Webhook verification and parsing | Signature check and payload parser as plain TS, shared by the Lambda and the tests |
-| M4 | mock-meta | A local fake of the Graph API that sends signed webhooks back, with configurable rate limits and errors |
-| M5 | Webhook Lambda | Verify, split, enqueue and return 200, plus a local HTTP adapter |
-| M6 | Messaging data model | Accounts, campaigns, deliveries, inbound messages, suppressions, with migrations and indexes |
-| M7 | Status consumer | Batched status transitions with the Redis Lua script and `bulkWrite` |
-| M8 | Legacy v1 adapter | Statuses for today's campaigns and direct messages are applied to the old collections |
-| M9 | Inbound consumer | Inbox, service window, opt-out, button tallies |
-| M10 | Auto-reply | Auto-replies queued once per recipient |
-| M11 | Account events | Template, quality and messaging-limit events, with automatic pause |
-| M12 | Sender, part 1 | Token bucket and adaptive rate in Lua |
-| M13 | Sender, part 2 | Send loop, claims, batched results, ambiguous-send handling |
-| M14 | Ops endpoints | Kill switch, queue stats, DLQ redrive |
-| M15 | Load test and webhook cutover | Staging load and chaos tests, then Meta's callback URL is switched |
-| M16 | Campaign API | Create, validate, template sync, uploads |
-| M17 | Audience build | Control consumer that writes pending deliveries |
-| M18 | Feeder and lifecycle | Feeder, start, pause, resume, stop, sweeper, schedules |
-| M19 | Campaign reads | Stats, deliveries, replies, export |
-| M20 | HeliumAdmin integration | API client, feature flag, screens |
-| M21 | Rollout | Canary, then retire the v1 worker |
+### M1 · Messaging design and plan
+
+- **Goal:** one agreed design, in this repo, that matches the code we have.
+- **Scope:**
+    - Inventory what HeliumAdmin and the storefront do today, and their problems.
+    - Reconcile the earlier 12-doc design with ADRs 0002–0014: ADR-0015 and `docs/modules/messaging/` (README, design, data model, API).
+    - The feature list, including new features (scheduling, send window, test send, frequency cap, retargeting, duplicate, speed cap, cost, attribution, inbox).
+    - Detailed blocks for M2–M18.
+- **Done when:** the docs are committed and every task below has a scope and a "Done when".
+
+### M2 · WhatsApp building blocks
+
+- **Goal:** the pure pieces every later task uses, fully unit-tested.
+- **Scope:**
+    - A `messaging` module skeleton and its config (`WA_*`: Graph version and URL, access token, app secrets, verify token, account IDs, max rate, opt-out keywords, price card).
+    - The Graph client: send on `/messages` and `/marketing_messages`, media upload, template list, phone-number fields; keep-alive, timeouts, no retries; results returned as `ok` or a classified error, with "ambiguous" for timeouts after the request was written.
+    - Error classification tables ([design.md](modules/messaging/design.md#errors)).
+    - Phone normalization (digits with country code, India default, HeliumAdmin's rules).
+    - Template helpers: placeholders per component, parameter resolution from the variable mapping, building the send payload with header media and URL buttons.
+- **Done when:** unit tests cover every error class and code list, phone edge cases, and parameter resolution for header, body and buttons, matching HeliumAdmin's behaviour.
+
+### M3 · Webhook intake
+
+- **Goal:** Meta's webhooks are accepted in milliseconds and never lost.
+- **Scope:**
+    - Signature verification (two secrets) and the payload splitter, as plain TypeScript.
+    - `GET` and `POST /webhooks/whatsapp`: public, raw body, no database or Redis, publish to `wa-status`, `wa-inbound`, `wa-account`; 500 if anything stays unsent.
+    - The three queues with DLQs (elasticmq.conf, deploy/config/queues.ts) and their message types.
+- **Done when:** HTTP tests show a bad signature gets 401 and queues nothing, a mixed payload lands on the right queues, a queue failure gets 500, and the verification challenge works.
+
+### M4 · mock-meta
+
+- **Goal:** the whole system runs locally against a realistic fake Meta.
+- **Scope:**
+    - A small HTTP server in `tools/mock-meta/`: `/messages`, `/marketing_messages`, media, templates and phone-number fields.
+    - A per-number rate limit returning 130429, latency from a configured p50 and p99, and errors chosen by the recipient's last digits (131026, timeout after write, 131049, 190).
+    - Signed status webhooks (`sent`, `delivered`, `read`) to the local webhook route, with delays, duplicates and reordering; `biz_opaque_callback_data` echoed.
+    - `POST /_sim/inbound` for replies and button taps; `GET /_sim/sent` for asserting zero duplicates.
+    - `pnpm dev` starts it; `.env.example` points the Graph URL at it.
+- **Done when:** a send through the Graph client to mock-meta produces signed webhooks that the webhook route accepts.
+
+### M5 · Messaging data model
+
+- **Goal:** the collections and indexes in [data-model.md](modules/messaging/data-model.md), owned by repositories.
+- **Scope:**
+    - Mongoose schemas and repositories for accounts, templates, media, deliveries, inbound messages, conversations, suppressions and unmatched statuses (`campaigns` and `exports` come with M10 and M13).
+    - A migration that creates the collections and indexes.
+    - The WhatsApp account seeded from config at start (one account today).
+    - Templates are filled by the sync (M9); test audiences are seeded with the audience build (M11).
+- **Done when:** the migration applies on an empty database and again with no changes; repository integration tests cover the bulk writers and their conditions.
+
+### M6 · Sender
+
+- **Goal:** every message leaves through one rate-limited, at-most-once sender.
+- **Scope:**
+    - `wa-send-p1` and `wa-send-p2`; the sender consumer polling p1 before p2.
+    - Lua `takeTokens`, `refundTokens`, `onRateLimited`, `maybeRaiseRate`; the gate (kill switch, account and number pauses).
+    - Claims, the call to Meta, result classification, batched flush (one `bulkWrite`, then counters, then deletes), unknown results to `wa:unconfirmed`, the wamid map, the daily-limit HyperLogLog.
+    - Campaign state and suppression checks before sending.
+- **Done when:**
+    - Lua tests show the bucket and its reserve hold under 50 parallel callers;
+    - integration tests against mock-meta show each error class handled;
+    - killing the sender mid-flush and restarting gives zero duplicate sends.
+
+### M7 · Status consumer
+
+- **Goal:** statuses are applied once, in batches, with exact counters.
+- **Scope:**
+    - Correlation (callback data, wamid map, index, then hold and `unmatched_statuses`).
+    - Lua `transition` with counters; merged `bulkWrite` guarded by rank; pricing categories.
+- **Done when:** tests show duplicates, reordering, `failed` after `sent`, and `read` without `delivered` all give the right status and counters, and 1,000 statuses become one database write.
+
+### M8 · Inbound consumer and auto-reply
+
+- **Goal:** every reply is kept, attributed correctly, and acted on once.
+- **Scope:**
+    - Inbound messages and conversations; the service window.
+    - Attribution through `context.id`; `delivery.reply`; button tallies; `replied` counted once.
+    - Opt-out keywords and buttons → suppressions and `wa:supp`.
+    - Auto-reply (text or template, any button or any reply, per-button text) through `wa-send-p1`, once per recipient, skipped when stale.
+- **Done when:** tests show a duplicate webhook stores one message, a reply to campaign A is never attributed to campaign B, STOP suppresses the number, and an auto-reply is sent exactly once under duplicates.
+
+### M9 · Account events and template sync
+
+- **Goal:** Meta's account events keep campaigns safe without anyone watching.
+- **Scope:**
+    - The account consumer: template status, quality and category; phone quality; messaging limit; account restrictions.
+    - Template sync from Meta every 15 minutes (`messaging-jobs`) and on demand.
+    - Automatic pause hooks used by campaigns (M12).
+- **Done when:** tests show a paused template pauses its campaigns, quality RED pauses marketing on the number, and a sync adds, updates and removes templates.
+
+### M10 · Campaign API and uploads
+
+- **Goal:** HeliumAdmin can create and manage campaign drafts through the API.
+- **Scope:**
+    - The `campaigns` module: schema, repository, migration.
+    - Create, read, list, edit, delete and duplicate drafts, with HeliumAdmin's validations (approved template, complete mapping, header media, auto-reply) plus the new options (send window, frequency cap, speed cap, attribution window).
+    - The `BlobStore` interface with a local-disk store; `POST /media` (stored, uploaded to Meta); `POST /uploads/csv` (stored, columns and rows counted, up to 1M rows).
+    - Roles and permissions in `permissions.ts`; idempotency and audit on every mutation.
+    - (The audience preview and filter options moved to M11, with the audience queries.)
+- **Done when:** HTTP tests cover each route's success and refusal cases, including permissions, idempotent retries and the audit entries.
+
+### M11 · Audience build
+
+- **Goal:** any audience, up to millions, becomes pending deliveries without touching checkout performance.
+- **Scope:**
+    - `campaign-control.fifo` and the control consumer; `campaign.command.build`.
+    - `POST /audiences/preview` (count, breakdown, a rendered sample) and `GET /audiences/options`.
+    - Sources: users, orders (all HeliumAdmin filters), abandoned carts, waitlist, individual users, CSV, and an earlier campaign's results.
+    - Normalize, de-duplicate, exclusions, suppressions, frequency cap, parameter resolution, `insertMany` in batches with `seq` blocks, heartbeat, resumable.
+- **Done when:** integration tests show each source and filter gives the expected recipients, a crashed build resumes with no duplicates, and skipped counts are exact.
+
+### M12 · Lifecycle, feeder and sweeper
+
+- **Goal:** campaigns run, pause, resume, stop and finish by themselves.
+- **Scope:**
+    - Commands: start (with pre-flight checks and the large-audience guard), schedule and cancel, pause, resume, stop, test send; automatic pauses from M6 and M9.
+    - The feeder: leader lock, backlog target, round-robin, speed cap, send window, daily-limit guard; a worker "loop" alongside consumers.
+    - The sweeper: due schedules, unknown results, completion, close after 72 h, stuck builds.
+    - Header media refresh before start.
+- **Done when:** integration tests show every lifecycle transition, pause and stop take effect within 5 s with nothing sent after, a send window holds and releases a campaign, and two campaigns on one number share it fairly.
+
+### M13 · Campaign reads, export and attribution
+
+- **Goal:** everything HeliumAdmin shows about a campaign, fast.
+- **Scope:**
+    - Live stats with rate, estimated finish and cost; the recipients table with filters (status, reply, search); replies and poll results.
+    - Async CSV export (all of HeliumAdmin's columns) to the blob store, then download.
+    - Order attribution from the main database.
+- **Done when:** HTTP tests cover each read; an export of 100k rows streams without loading them in memory; attribution matches a hand-made fixture.
+
+### M14 · Inbox, direct messages and suppressions
+
+- **Goal:** the contacts screen and a real inbox, on the same pipeline.
+- **Scope:**
+    - Conversations list, contact profile and timeline, mark read, search.
+    - Direct template sends and free-text replies (24-hour window) through `wa-send-p1`.
+    - Suppression list, add, remove and import.
+- **Done when:** HTTP tests show a reply opens the window, a free-text send outside it is refused, and the timeline merges deliveries and inbound messages in order.
+
+### M15 · Messaging operations
+
+- **Goal:** operators can see and control the system without a deploy.
+- **Scope:** queue and DLQ stats, the kill switch, DLQ redrive, counter reconcile, account resume; the runbook section for messaging.
+- **Done when:** HTTP tests cover each route, and reconcile rebuilds exact counters after the Redis keys are deleted.
+
+### M16 · End-to-end and load test (local)
+
+- **Goal:** proof that the whole system meets its targets.
+- **Scope:**
+    - A scripted local run: a 100k-recipient campaign through mock-meta with errors, duplicates and reordering.
+    - Pause, resume and stop in the middle; replies, button taps, opt-outs and auto-replies; a second campaign at the same time.
+    - A webhook burst test against the local route.
+- **Done when:** counts are exact, `/_sim/sent` shows zero duplicates, auto-replies are sent once, opt-outs are honored, and send rate, status lag and webhook latency are recorded in the module README.
+
+### M17 · HeliumAdmin integration
+
+- **Goal:** admins use the new engine from the screens they know.
+- **Scope:**
+    - A backend client in HeliumAdmin (service token with the admin in `act`).
+    - Campaign, inbox and ops screens calling the API, including the new features; behind a `MESSAGING_ENGINE` flag, with v1 campaigns read-only.
+- **Done when:** with the flag on, a campaign can be created, built, tested, scheduled, run, paused, stopped and exported against the local backend and mock-meta.
+- **Result:** HeliumAdmin `/messaging` (campaigns, composer, campaign page, inbox, opt-outs, operations) through one proxy route, `/api/messaging/*`; every step above checked in a browser against the local backend and mock-meta.
+
+### M18 · Rollout
+
+- **Goal:** production runs on the new engine, and the v1 worker is gone.
+- **Scope:**
+    - Deploy (F25, F26) with the messaging queues; the webhook route or a Lambda. The CDK app gets the `WA_*` settings per environment and the WhatsApp secrets (access token, app secrets, verify token) in Secrets Manager.
+    - A smoke test with the real number on a 5-number list.
+    - Switch Meta's callback URL when no v1 campaign is sending.
+    - Canary: 1k, 10k, 100k recipients, comparing with v1.
+    - Then retire the v1 worker and webhook route.
+- **Done when:** 14 days in production with no P1 alarm, and the v1 worker is retired.
+
 
 ## Open items (needed before the tasks named)
 
@@ -399,5 +568,7 @@ The detailed design is in the Helium-Production repo under `docs/architecture/me
 | ~~GitHub repo location and who reviews PRs~~ Resolved: github.com/adarshroy001/HeliumHelper, no reviewers requested automatically (CODEOWNERS removed) | F5 | Done |
 | AWS: separate staging account or prefixed stacks in one account | F23 | You |
 | DocumentDB admin access to create the `messaging` database and users | F24 | You |
-| Meta: a staging app and a test number | M5 | You |
-| Slack channel for alerts | F26 | You |
+| Meta: a test app and number for a real smoke test (local work uses mock-meta) | M16 | You |
+| Slack channel for alerts | M18 | You |
+| Admin roles in HeliumAdmin (everyone is `admin` until then) | M17 | You |
+| Recorded WhatsApp marketing opt-in for storefront users (Meta policy, DPDP) | M18 | You |

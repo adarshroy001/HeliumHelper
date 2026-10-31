@@ -6,5 +6,37 @@
     "timezone": "Asia/Kolkata",
     "queue": "system-jobs",
     "input": "{\"v\":1,\"id\":\"<aws.scheduler.execution-id>\",\"type\":\"system.heartbeat.tick\",\"ts\":\"<aws.scheduler.scheduled-time>\",\"producer\":\"eventbridge-scheduler\",\"correlationId\":\"<aws.scheduler.execution-id>\",\"data\":{}}"
+  },
+  {
+    "name": "messaging-templates-sync",
+    "description": "Mirrors Meta's templates and the number's quality into the messaging database.",
+    "scheduleExpression": "cron(0/15 * * * ? *)",
+    "timezone": "Asia/Kolkata",
+    "queue": "messaging-jobs",
+    "input": "{\"v\":1,\"id\":\"<aws.scheduler.execution-id>\",\"type\":\"messaging.job.run\",\"ts\":\"<aws.scheduler.scheduled-time>\",\"producer\":\"eventbridge-scheduler\",\"correlationId\":\"<aws.scheduler.execution-id>\",\"data\":{\"job\":\"templates-sync\"}}"
+  },
+  {
+    "name": "messaging-suppressions-reload",
+    "description": "Reloads the Redis mirror of the suppression list from the database.",
+    "scheduleExpression": "cron(0/10 * * * ? *)",
+    "timezone": "Asia/Kolkata",
+    "queue": "messaging-jobs",
+    "input": "{\"v\":1,\"id\":\"<aws.scheduler.execution-id>\",\"type\":\"messaging.job.run\",\"ts\":\"<aws.scheduler.scheduled-time>\",\"producer\":\"eventbridge-scheduler\",\"correlationId\":\"<aws.scheduler.execution-id>\",\"data\":{\"job\":\"suppressions-reload\"}}"
+  },
+  {
+    "name": "messaging-unconfirmed-settle",
+    "description": "Settles sends whose result was unknown for 15 minutes: resolved, sent once more, or failed.",
+    "scheduleExpression": "cron(* * * * ? *)",
+    "timezone": "Asia/Kolkata",
+    "queue": "messaging-jobs",
+    "input": "{\"v\":1,\"id\":\"<aws.scheduler.execution-id>\",\"type\":\"messaging.job.run\",\"ts\":\"<aws.scheduler.scheduled-time>\",\"producer\":\"eventbridge-scheduler\",\"correlationId\":\"<aws.scheduler.execution-id>\",\"data\":{\"job\":\"unconfirmed-settle\"}}"
+  },
+  {
+    "name": "campaign-sweep",
+    "description": "Starts due campaigns, records automatic pauses, completes, closes and recovers campaigns.",
+    "scheduleExpression": "cron(* * * * ? *)",
+    "timezone": "Asia/Kolkata",
+    "queue": "campaign-control",
+    "input": "{\"v\":1,\"id\":\"<aws.scheduler.execution-id>\",\"type\":\"campaign.command.run\",\"ts\":\"<aws.scheduler.scheduled-time>\",\"producer\":\"eventbridge-scheduler\",\"correlationId\":\"<aws.scheduler.execution-id>\",\"data\":{\"command\":\"sweep\"}}"
   }
 ]

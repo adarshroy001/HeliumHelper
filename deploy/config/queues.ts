@@ -23,4 +23,48 @@ export const QUEUES: readonly QueueDefinition[] = [
     maxReceiveCount: 5,
     alarms: { oldestMessageSeconds: 15 * 60, dlqMessages: 1 },
   },
+  {
+    name: 'wa-status',
+    visibilitySeconds: 60,
+    // Unmatched statuses are held up to 5 times before they are recorded as unmatched.
+    maxReceiveCount: 10,
+    alarms: { oldestMessageSeconds: 120, dlqMessages: 1 },
+  },
+  {
+    name: 'wa-inbound',
+    visibilitySeconds: 60,
+    maxReceiveCount: 5,
+    alarms: { oldestMessageSeconds: 120, dlqMessages: 1 },
+  },
+  {
+    name: 'wa-account',
+    visibilitySeconds: 60,
+    maxReceiveCount: 5,
+    alarms: { oldestMessageSeconds: 300, dlqMessages: 1 },
+  },
+  {
+    name: 'wa-send-p1',
+    visibilitySeconds: 30,
+    // Rate-limit waits happen before receiving, so only crash loops reach this.
+    maxReceiveCount: 15,
+    alarms: { oldestMessageSeconds: 60, dlqMessages: 1 },
+  },
+  {
+    name: 'wa-send-p2',
+    visibilitySeconds: 30,
+    maxReceiveCount: 15,
+    alarms: { oldestMessageSeconds: 15 * 60, dlqMessages: 1 },
+  },
+  {
+    name: 'messaging-jobs',
+    visibilitySeconds: 120,
+    maxReceiveCount: 5,
+    alarms: { oldestMessageSeconds: 30 * 60, dlqMessages: 1 },
+  },
+  {
+    name: 'campaign-control',
+    visibilitySeconds: 300,
+    maxReceiveCount: 5,
+    alarms: { oldestMessageSeconds: 10 * 60, dlqMessages: 1 },
+  },
 ];
