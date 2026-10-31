@@ -26,9 +26,9 @@ How each part works. Names of collections, keys and queues are defined in [data-
     - `messages` with `statuses` → `wa-status`;
     - `messages` with `messages` → `wa-inbound`;
     - any other field → `wa-account` (an unknown field is logged).
-3. Publish in batches. If anything stays unsent, answer 500 so Meta retries (duplicates are safe); otherwise 200 with an empty body.
+3. Publish in batches. If anything stays unsent, answer 503 `WEBHOOK_NOT_QUEUED` so Meta retries (duplicates are safe); otherwise 200 with an empty body. A signed body that isn't a WhatsApp payload is logged and answered 200, because retrying can't fix it.
 
-The route is `@Public()` (the signature is its authentication), is not rate-limited by the caller limiter, and is excluded from the access log body. Meta retries failed webhooks for up to 7 days and can deliver duplicates, so every consumer is idempotent.
+The route is `@Public()` (the signature is its authentication), served under the `/webhooks` prefix (`@WebhookController('whatsapp')`), not counted by the caller rate limit, and hidden from the API docs. Meta retries failed webhooks for up to 7 days and can deliver duplicates, so every consumer is idempotent.
 
 ## Sending
 

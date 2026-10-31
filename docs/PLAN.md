@@ -42,7 +42,7 @@ The workflow and the Definition of Done for every task are in [CONVENTIONS.md](C
 | F26 | Deploy pipeline and runbook | F25 | Code done; first deploy and rollback rehearsal deferred (needs AWS) |
 | M1 | Messaging design and plan | F26 | Done |
 | M2 | WhatsApp building blocks | M1 | Done |
-| M3 | Webhook intake | M2 | Not started |
+| M3 | Webhook intake | M2 | Done |
 | M4 | mock-meta | M2 | Not started |
 | M5 | Messaging data model | M1 | Not started |
 | M6 | Sender | M2, M5 | Not started |

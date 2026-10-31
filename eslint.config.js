@@ -69,7 +69,7 @@ export default defineConfig(
               name: '@nestjs/common',
               importNames: ['Controller'],
               message:
-                'Use InternalController from src/common/http, so routes get their audience prefix (ADR-0010).',
+                'Use InternalController or WebhookController from src/common/http, so routes get their audience prefix (ADR-0010).',
             },
           ],
           patterns: [

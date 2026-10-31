@@ -280,7 +280,7 @@ Every error response has one shape ([ADR-0008](adr/0008-error-contract.md)):
 
 ## HTTP
 
-- **Route prefixes by audience** ([ADR-0010](adr/0010-auth-and-access.md)). Module controllers use `@InternalController('campaigns')` from `src/common/http/`, which serves `/internal/v1/campaigns`. Plain `@Controller` is banned in `src/modules` by lint. `/admin/v1` and `/store/v1` are reserved; their decorators are added when those audiences arrive.
+- **Route prefixes by audience** ([ADR-0010](adr/0010-auth-and-access.md)). Module controllers use `@InternalController('campaigns')` from `src/common/http/`, which serves `/internal/v1/campaigns`. Provider webhooks use `@WebhookController('whatsapp')` (`/webhooks/whatsapp`): `@Public()`, authenticated by the provider's signature over `req.rawBody`, and never counted by the caller rate limit. Plain `@Controller` is banned in `src/modules` by lint. `/admin/v1` and `/store/v1` are reserved; their decorators are added when those audiences arrive.
 - **Outside the prefixes:** `/health/live`, `/health/ready` and, except in production, `/docs`.
 - **Request bodies:** JSON only, up to 1 MB (`BODY_LIMIT`). Anything larger is 413 `PAYLOAD_TOO_LARGE`; big files go through S3. `req.rawBody` (`RawBodyRequest`) keeps the exact bytes for webhook signature checks.
 - **Browsers:** CORS is off unless `CORS_ORIGINS` lists origins. helmet sets security headers and removes `X-Powered-By`.

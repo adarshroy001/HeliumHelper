@@ -6,7 +6,8 @@ WhatsApp messaging ([ADR-0015](../../../docs/adr/0015-whatsapp-messaging.md)): a
 
 | Folder | Holds |
 | --- | --- |
-| `whatsapp/` | Plain TypeScript for Meta, with no Nest or database: the Graph client, error classification, phone normalization, template helpers. A Lambda can import these |
+| `whatsapp/` | Plain TypeScript for Meta, with no Nest or database: the Graph client, error classification, phone normalization, template helpers, webhook signature and splitting. A Lambda can import these |
+| `webhooks/` | The webhook route and the intake service that queues each change |
 
 ## Owns
 
@@ -14,8 +15,12 @@ WhatsApp messaging ([ADR-0015](../../../docs/adr/0015-whatsapp-messaging.md)): a
 | --- | --- | --- |
 | Config | `whatsapp` (`WA_*`) | `src/config/whatsapp.config.ts` |
 | Provider | `GraphClient` | Meta's Graph API; never throws on sends, returns classified results |
+| Route | `GET`, `POST /webhooks/whatsapp` | Verification challenge; signed webhooks, queued |
+| Queue | `wa-status`, `wa-inbound`, `wa-account` (+ `-dlq`) | Webhook changes by kind |
+| Message | `wa.webhook.status`, `wa.webhook.inbound`, `wa.webhook.account` | `{ receivedAt, wabaId, phoneNumberId?, field, value }` |
+| Error | `WEBHOOK_SIGNATURE_INVALID` (401), `WEBHOOK_VERIFICATION_FAILED` (403), `WEBHOOK_NOT_QUEUED` (503) | |
 
-Collections, queues, routes and error codes are added by M3–M15 and listed here as they land.
+More collections, queues, routes and error codes are added by M4–M15 and listed here as they land.
 
 ## Rules worth knowing
 

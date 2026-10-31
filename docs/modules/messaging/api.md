@@ -87,4 +87,4 @@ HeliumAdmin has no admin roles yet, so it sends `admin` for every admin user. Th
 | Method and path | Does |
 | --- | --- |
 | `GET /webhooks/whatsapp` | Meta's verification challenge |
-| `POST /webhooks/whatsapp` | Verify the signature, split, queue, 200 ([design.md](design.md#webhooks)) |
+| `POST /webhooks/whatsapp` | Verify the signature, split, queue, 200; 401 `WEBHOOK_SIGNATURE_INVALID`; 503 `WEBHOOK_NOT_QUEUED` ([design.md](design.md#webhooks)) |
