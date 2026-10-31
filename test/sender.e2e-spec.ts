@@ -137,7 +137,8 @@ describe('sender (worker, MongoDB, Valkey, ElasticMQ, mock-meta)', () => {
     expect(await redis.get(keys.wamid(stored.providerMessageId ?? ''))).toBe(
       `${message.deliveryId}:${campaignId}`,
     );
-    expect(await redis.hget(keys.counters(campaignId), 'accepted')).toBe('1');
+    // Counters follow the database write, a moment later.
+    await eventually(async () => (await redis.hget(keys.counters(campaignId), 'accepted')) === '1');
   });
 
   it('never sends a delivery twice, even when its message arrives several times', async () => {
@@ -153,7 +154,8 @@ describe('sender (worker, MongoDB, Valkey, ElasticMQ, mock-meta)', () => {
     await eventually(async () => (await delivery(message.deliveryId))?.status === 'accepted');
     await new Promise((resolve) => setTimeout(resolve, 500));
     expect(sentTo(message.deliveryId)).toBe(1);
-    expect(await redis.hget(keys.counters(campaignId), 'accepted')).toBe('1');
+    // Counters follow the database write, a moment later.
+    await eventually(async () => (await redis.hget(keys.counters(campaignId), 'accepted')) === '1');
   });
 
   it('records a delivery sent before a crash without sending it again', async () => {

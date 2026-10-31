@@ -213,13 +213,14 @@ A draft can be edited and deleted; from `building` on, a campaign can't be edite
 
 ### Build
 
-Run by the control consumer (`campaign.command.build`), resumable:
+Run by the control consumer (`campaign.command.run` with `build`, on the standard `campaign-control` queue: each command re-checks the campaign's status, so order and duplicates don't matter, and quick changes such as pause are made by the API itself). Resumable:
 
 1. **Stream the audience** with cursors on the main database (`secondaryPreferred`, batches of 1,000, throttled to 5,000 documents a second), or from the CSV in the blob store. Sources: users, orders, abandoned carts, waitlist, individual users, CSV, and an earlier campaign's results (retargeting).
 2. **Normalize** each phone to digits with country code (default 91). Invalid numbers count as `skipped.invalid`.
 3. **Exclude** numbers on the exclusion list, suppressed numbers (`skipped.suppressed`), and, when the frequency cap is on, numbers with a marketing delivery accepted in the last N hours (`skipped.frequency`).
 4. **Resolve the template parameters** (header, body, buttons) with HeliumAdmin's mapping rules: fields `name`, `phone`, `email`, `city`, CSV columns, static text; a missing value falls back to "Customer".
-5. **Write** deliveries with `insertMany({ ordered: false })` in batches of 1,000, each with `seq` (from a block reserved with one `$inc`) and `dedupeKey`. A duplicate `dedupeKey` is a duplicate recipient: counted and ignored. A re-run of the build is safe.
+5. **Write** deliveries through the messaging module's `DeliveryLedger` with `insertMany({ ordered: false })` in batches of 1,000, each with `seq` (from a block reserved with one `$inc` on `build.seq`, never reused) and `dedupeKey`. A duplicate `dedupeKey` is a duplicate recipient: ignored, so the first source to name a phone gives its details, in HeliumAdmin's priority order (CSV, users, orders, carts, waitlist, individual, earlier campaign). A re-run of the build adds only what's missing; `skipped.duplicate` is the valid rows that didn't become deliveries.
+   The template payload is stored without header media: the media's Meta ID is known only at start, and the feeder adds it to each send.
 6. Every 30 s, save `build.heartbeatAt` and `build.processed`. At the end, set `total` and the skipped counts, and mark the campaign `ready`.
 
 ### Feeder

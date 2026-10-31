@@ -6,6 +6,8 @@ import { AuditModule } from '../audit/index.js';
 import { AccountsService } from './accounts.service.js';
 import { MediaService } from './api/media.service.js';
 import { MediaRepository } from './data/media.repository.js';
+import { DeliveryLedger } from './ledger/delivery-ledger.js';
+import { SuppressionsService } from './suppressions/suppressions.service.js';
 import { DeliveriesRepository } from './data/deliveries.repository.js';
 import { Delivery, DeliverySchema } from './data/delivery.schema.js';
 import {
@@ -81,6 +83,8 @@ import { GraphClient } from './whatsapp/graph-client.js';
     TemplatesRepository,
     MediaRepository,
     MediaService,
+    DeliveryLedger,
+    SuppressionsService,
     CampaignCounters,
     CampaignSignals,
     TemplatesService,
@@ -107,6 +111,15 @@ import { GraphClient } from './whatsapp/graph-client.js';
         }),
     },
   ],
-  exports: [GraphClient, CampaignCounters, CampaignSignals, TemplatesService, AccountsService, MediaService],
+  exports: [
+    GraphClient,
+    CampaignCounters,
+    CampaignSignals,
+    TemplatesService,
+    AccountsService,
+    MediaService,
+    DeliveryLedger,
+    SuppressionsService,
+  ],
 })
 export class MessagingModule {}

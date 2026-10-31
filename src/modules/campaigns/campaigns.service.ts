@@ -3,6 +3,7 @@ import { InjectConnection } from '@nestjs/mongoose';
 import type { Connection } from 'mongoose';
 import type { Actor } from '../../common/auth/index.js';
 import { DB, type Page, withTransaction } from '../../infrastructure/database/index.js';
+import { QueuePublisher } from '../../infrastructure/queue/index.js';
 import { AuditService } from '../audit/index.js';
 import { MAIN_ACCOUNT_ID } from '../messaging/index.js';
 import type { CampaignDocument } from './campaign.schema.js';
@@ -10,6 +11,7 @@ import { CampaignValidator } from './campaign-validator.js';
 import type { CreateCampaign, ListCampaignsQuery, UpdateCampaign } from './campaigns.schemas.js';
 import { CampaignNotFoundError, CampaignStateError } from './campaigns.errors.js';
 import { CampaignsRepository } from './campaigns.repository.js';
+import { CAMPAIGN_CONTROL_QUEUE, campaignCommand } from './control/campaign-control.js';
 
 /** A campaign as the API returns it. */
 export function campaignView(c: CampaignDocument) {
@@ -70,6 +72,7 @@ export class CampaignsService {
     private readonly campaigns: CampaignsRepository,
     private readonly validator: CampaignValidator,
     private readonly audit: AuditService,
+    private readonly publisher: QueuePublisher,
   ) {}
 
   async create(input: CreateCampaign, actor: Actor): Promise<CampaignDocument> {
@@ -171,6 +174,43 @@ export class CampaignsService {
         session,
       );
     });
+  }
+
+  /**
+   * Starts building a draft's audience: the campaign becomes `building` and the work is queued. If queuing fails,
+   * the sweeper re-queues builds whose heartbeat stops.
+   */
+  async build(id: string, actor: Actor): Promise<CampaignDocument> {
+    const current = await this.get(id);
+    if (current.status !== 'draft') throw new CampaignStateError(id, current.status, 'built');
+    const building = await withTransaction(this.connection, async (session) => {
+      const updated = await this.campaigns.transition(
+        id,
+        { from: ['draft'], version: current.version },
+        {
+          status: 'building',
+          build: { seq: current.build?.seq ?? 0, processed: 0, heartbeatAt: new Date() },
+        },
+        { session },
+      );
+      if (updated === null) throw new CampaignStateError(id, current.status, 'built');
+      await this.audit.record(
+        {
+          actor,
+          action: 'campaign.build',
+          entity: { type: 'campaign', id },
+          before: { status: 'draft' },
+          after: { status: 'building' },
+        },
+        session,
+      );
+      return updated;
+    });
+    await this.publisher.publish(CAMPAIGN_CONTROL_QUEUE, campaignCommand, {
+      campaignId: id,
+      command: 'build',
+    });
+    return building;
   }
 
   /** A new draft with the same setup, checked again against today's templates and uploads. */

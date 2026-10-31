@@ -107,10 +107,10 @@ describe('inbound messages (API webhook, worker, mock-meta)', () => {
   it('stores a reply, attributes it to the campaign message it answers, and counts one vote per person', async () => {
     const { campaignId, deliveryId, wamid } = await sentCampaignMessage('919850000011');
 
+    // A real customer's taps are seconds apart: the second is sent once the first is stored.
     const first = await reply({ from: '919850000011', button: { text: 'Bedroom' }, contextWamid: wamid });
-    await reply({ from: '919850000011', button: { text: 'Office' }, contextWamid: wamid });
-
     const stored = await eventually(() => inboundDoc(first));
+    await reply({ from: '919850000011', button: { text: 'Office' }, contextWamid: wamid });
     expect(stored).toMatchObject({ from: '919850000011', type: 'button', deliveryId, campaignId });
     const delivery = await eventually(async () => {
       const d = await deliveries.findById(new Types.ObjectId(deliveryId)).lean<Delivery>();

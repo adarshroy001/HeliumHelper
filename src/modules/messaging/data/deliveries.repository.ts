@@ -188,4 +188,55 @@ export class DeliveriesRepository {
     }
     if (ops.length > 0) await this.model.bulkWrite(ops, { ordered: false });
   }
+
+  /** Phones among `phones` that got a campaign message accepted by Meta since `since` (the frequency cap). */
+  async recentlyMessaged(phones: readonly string[], since: Date): Promise<Set<string>> {
+    if (phones.length === 0) return new Set();
+    const found = await this.model
+      .find(
+        {
+          to: { $in: [...phones] },
+          createdAt: { $gte: since },
+          'source.kind': 'campaign',
+          status: { $in: ['accepted', 'sent', 'delivered', 'read'] },
+        },
+        { to: 1 },
+      )
+      .lean<{ to: string }[]>()
+      .exec();
+    return new Set(found.map((d) => d.to));
+  }
+
+  async countCampaign(campaignId: string): Promise<number> {
+    return this.model.countDocuments({ campaignId: new Types.ObjectId(campaignId) }).exec();
+  }
+
+  /** Recipients of a campaign by what happened to their message, for retargeting. */
+  async *campaignRecipients(
+    campaignId: string,
+    outcome: 'delivered_not_read' | 'read_no_reply' | 'replied' | 'button' | 'failed' | 'not_delivered',
+    button?: string,
+  ): AsyncGenerator<{ to: string; name?: string; userId?: string }> {
+    const base = { campaignId: new Types.ObjectId(campaignId) };
+    const filters = {
+      delivered_not_read: { status: 'delivered' },
+      read_no_reply: { status: 'read', reply: { $exists: false } },
+      replied: { reply: { $exists: true } },
+      button: { 'reply.lastButton': button ?? '' },
+      failed: { status: 'failed' },
+      not_delivered: { status: { $in: ['accepted', 'sent'] } },
+    } as const;
+    const cursor = this.model
+      .find({ ...base, ...filters[outcome] }, { to: 1, name: 1, userId: 1 })
+      .sort({ seq: 1 })
+      .lean<{ to: string; name?: string; userId?: string }>()
+      .cursor({ batchSize: 1000 });
+    for await (const doc of cursor) {
+      yield {
+        to: doc.to,
+        ...(doc.name === undefined ? {} : { name: doc.name }),
+        ...(doc.userId === undefined ? {} : { userId: doc.userId }),
+      };
+    }
+  }
 }

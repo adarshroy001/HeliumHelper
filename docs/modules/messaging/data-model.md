@@ -128,7 +128,7 @@ return {1, cur}
 | `wa-account` | Standard | account | 60 s | 5 |
 | `wa-send-p1` | Standard | sender | 30 s | 15 |
 | `wa-send-p2` | Standard (fair, `groupId = campaignId`) | sender | 30 s | 15 |
-| `campaign-control.fifo` | FIFO (`groupId = campaignId`) | control | 300 s (builds heartbeat) | 5 |
+| `campaign-control` | Standard | control | 300 s (builds heartbeat) | 5 |
 | `messaging-jobs` | Standard | jobs (sweeper, template sync, suppression reload) | 120 s | 5 |
 
 Each has a `-dlq`, alarms on oldest-message age and DLQ depth (deploy/config/queues.ts), and an entry in docker/elasticmq.conf.
@@ -141,5 +141,5 @@ Each has a `-dlq`, alarms on oldest-message age and DLQ depth (deploy/config/que
 | `wa.webhook.inbound` | `wa-inbound` | the same |
 | `wa.webhook.account` | `wa-account` | the same, with `field` |
 | `wa.delivery.send` | `wa-send-p1`, `wa-send-p2` | the send message ([design.md](design.md#the-send-message)) |
-| `campaign.command.build`, `.start`, `.pause`, `.resume`, `.stop`, `.export`, `.test` | `campaign-control.fifo` | `{ campaignId, ... }` |
-| `messaging.sweep.tick`, `messaging.templates.sync`, `messaging.suppressions.reload` | `messaging-jobs` | `{}` |
+| `campaign.command.run` | `campaign-control` | `{ campaignId, command }`: `build` (M11), `start`, `stop`, `export`, `test` (M12–M13) |
+| `messaging.job.run` | `messaging-jobs` | `{ job }`: `templates-sync`, `suppressions-reload` |

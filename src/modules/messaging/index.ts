@@ -34,3 +34,5 @@ export {
   WA_SEND_P1_QUEUE,
   WA_SEND_P2_QUEUE,
 } from './messaging.messages.js';
+export { type CampaignRecipient, DeliveryLedger, type RetargetOutcome } from './ledger/delivery-ledger.js';
+export { SuppressionsService } from './suppressions/suppressions.service.js';

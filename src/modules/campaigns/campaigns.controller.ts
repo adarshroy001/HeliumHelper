@@ -21,10 +21,13 @@ import {
   listCampaignsQuery,
   type ListCampaignsQuery,
   objectId,
+  previewAudienceSchema,
+  type PreviewAudience,
   updateCampaignSchema,
   type UpdateCampaign,
 } from './campaigns.schemas.js';
 import { campaignView, CampaignsService } from './campaigns.service.js';
+import { AudiencePreviewService } from './audience/audience-preview.service.js';
 import { MAX_CSV_ROWS, type ReceivedFile, UploadsService, uploadView } from './uploads.service.js';
 
 /** Campaign drafts and audience uploads (docs/modules/messaging/api.md#campaigns). */
@@ -33,6 +36,7 @@ export class CampaignsController {
   constructor(
     private readonly campaigns: CampaignsService,
     private readonly uploads: UploadsService,
+    private readonly preview: AudiencePreviewService,
   ) {}
 
   @Get('campaigns')
@@ -78,6 +82,32 @@ export class CampaignsController {
   @RequirePermissions('campaigns:write')
   async duplicate(@Param('id', { schema: objectId }) id: string, @CurrentActor() actor: Actor) {
     return campaignView(await this.campaigns.duplicate(id, actor));
+  }
+
+  @Post('campaigns/:id/build')
+  @HttpCode(202)
+  @Idempotent()
+  @RequirePermissions('campaigns:write')
+  async build(@Param('id', { schema: objectId }) id: string, @CurrentActor() actor: Actor) {
+    return campaignView(await this.campaigns.build(id, actor));
+  }
+
+  @Post('audiences/preview')
+  @HttpCode(200)
+  @RequirePermissions('campaigns:read')
+  async previewAudience(@Body({ schema: previewAudienceSchema }) body: PreviewAudience) {
+    return this.preview.preview(
+      body.audience,
+      body.templateId === undefined
+        ? undefined
+        : { templateId: body.templateId, variableMapping: body.variableMapping },
+    );
+  }
+
+  @Get('audiences/options')
+  @RequirePermissions('campaigns:read')
+  async audienceOptions() {
+    return this.preview.options();
   }
 
   @Post('uploads/csv')

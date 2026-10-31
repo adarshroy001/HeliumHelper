@@ -61,4 +61,10 @@ export const QUEUES: readonly QueueDefinition[] = [
     maxReceiveCount: 5,
     alarms: { oldestMessageSeconds: 30 * 60, dlqMessages: 1 },
   },
+  {
+    name: 'campaign-control',
+    visibilitySeconds: 300,
+    maxReceiveCount: 5,
+    alarms: { oldestMessageSeconds: 10 * 60, dlqMessages: 1 },
+  },
 ];

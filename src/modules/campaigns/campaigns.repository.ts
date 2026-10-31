@@ -61,9 +61,32 @@ export class CampaignsRepository {
             ? {}
             : { $unset: Object.fromEntries(options.unset.map((field) => [field, 1])) }),
         },
-        { new: true, session: options.session },
+        { returnDocument: 'after', session: options.session },
       )
       .lean<CampaignDocument>()
+      .exec();
+  }
+
+  /** Reserves `count` sequence numbers for a building campaign; returns the first. Numbers are never reused. */
+  async reserveSeq(id: string, count: number): Promise<number> {
+    const updated = await this.model
+      .findOneAndUpdate(
+        { _id: id },
+        { $inc: { 'build.seq': count } },
+        { returnDocument: 'after', projection: { build: 1 } },
+      )
+      .lean<{ build?: { seq: number } }>()
+      .exec();
+    return (updated?.build?.seq ?? count) - count;
+  }
+
+  /** Records a running build's progress; the sweeper re-queues a build whose heartbeat stops. */
+  async heartbeat(id: string, processed: number): Promise<void> {
+    await this.model
+      .updateOne(
+        { _id: id, status: 'building' },
+        { $set: { 'build.processed': processed, 'build.heartbeatAt': new Date() } },
+      )
       .exec();
   }
 

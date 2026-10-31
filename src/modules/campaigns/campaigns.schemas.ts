@@ -173,3 +173,11 @@ export const listCampaignsQuery = paginationQuery.extend({
     .optional(),
 });
 export type ListCampaignsQuery = z.infer<typeof listCampaignsQuery>;
+
+export const previewAudienceSchema = z.strictObject({
+  audience: audienceSchema,
+  /** With a template and mapping, the preview includes one rendered sample message. */
+  templateId: z.string().min(1).max(40).optional(),
+  variableMapping: z.array(mappingSchema).max(50).default([]),
+});
+export type PreviewAudience = z.infer<typeof previewAudienceSchema>;

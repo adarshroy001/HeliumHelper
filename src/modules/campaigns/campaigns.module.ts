@@ -8,6 +8,10 @@ import { CampaignValidator } from './campaign-validator.js';
 import { CampaignsRepository, UploadsRepository } from './campaigns.repository.js';
 import { CampaignsService } from './campaigns.service.js';
 import { UploadsService } from './uploads.service.js';
+import { AudienceBuilder } from './audience/audience-builder.js';
+import { AudiencePreviewService } from './audience/audience-preview.service.js';
+import { AudienceSourcesRepository } from './audience/audience-sources.repository.js';
+import { CampaignControlConsumer } from './control/campaign-control.consumer.js';
 
 /**
  * WhatsApp campaigns (ADR-0015): drafts, audiences, the build, the feeder, the lifecycle, stats and exports. Uses
@@ -25,7 +29,17 @@ import { UploadsService } from './uploads.service.js';
       DB.messaging,
     ),
   ],
-  providers: [CampaignsRepository, UploadsRepository, CampaignValidator, CampaignsService, UploadsService],
-  exports: [CampaignsService, UploadsService],
+  providers: [
+    CampaignsRepository,
+    UploadsRepository,
+    AudienceSourcesRepository,
+    CampaignValidator,
+    CampaignsService,
+    UploadsService,
+    AudienceBuilder,
+    AudiencePreviewService,
+    CampaignControlConsumer,
+  ],
+  exports: [CampaignsService, UploadsService, AudiencePreviewService],
 })
 export class CampaignsModule {}

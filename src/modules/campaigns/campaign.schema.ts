@@ -43,7 +43,8 @@ export interface CampaignTotals {
 }
 
 /** A WhatsApp campaign (docs/modules/messaging/data-model.md#campaigns). */
-@Schema({ collection: CAMPAIGNS_COLLECTION, versionKey: false })
+// minimize: false keeps empty objects (a source with no filters is `filters: {}`), so audiences read back as written.
+@Schema({ collection: CAMPAIGNS_COLLECTION, versionKey: false, minimize: false })
 export class Campaign {
   @Prop({ required: true })
   name!: string;
