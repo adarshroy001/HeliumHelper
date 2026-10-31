@@ -77,4 +77,5 @@ The full list, and how to write code here, is in [CLAUDE.md](CLAUDE.md) and [doc
 | [docs/adr/](docs/adr/README.md) | Architecture decisions and why |
 | [CLAUDE.md](CLAUDE.md) | Short guide for AI coding agents, with every command |
 | [docs/RUNBOOK.md](docs/RUNBOOK.md) | Operating the deployed services |
+| [docs/modules/](docs/modules/messaging/README.md) | Design of larger modules (messaging) |
 | `src/modules/*/README.md` | What each module owns |
