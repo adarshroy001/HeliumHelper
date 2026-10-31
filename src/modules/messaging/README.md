@@ -45,6 +45,7 @@ WhatsApp messaging ([ADR-0015](../../../docs/adr/0015-whatsapp-messaging.md)): a
 | Routes | `GET /templates`, `POST /templates/sync`, `POST /media` | Under `/internal/v1`; permissions `campaigns:read`, `messaging:ops`, `campaigns:write` |
 | Routes | `GET /conversations`, `GET /contacts`, `GET /contacts/:phone`, `POST /contacts/:phone/read`, `POST /contacts/:phone/messages`, `GET`/`PUT`/`DELETE /suppressions(/:phone)`, `POST /suppressions/import` | Permissions `inbox:read`, `inbox:send`, `suppressions:write` |
 | Reads | The main database's `users` | Contact profiles and search (`ContactsRepository`), read-only |
+| Routes (ops) | `GET /ops/messaging`, `PUT /ops/messaging/kill-switch`, `POST /ops/queues/:queue/redrive`, `POST /ops/accounts/main/resume` | Permission `messaging:ops`; [RUNBOOK](../../../docs/RUNBOOK.md#messaging) |
 | Audit | `template.sync`, `contact.message`, `suppression.add`, `suppression.remove`, `suppression.import` | |
 
 More collections, queues, routes and error codes are added by M4–M15 and listed here as they land.

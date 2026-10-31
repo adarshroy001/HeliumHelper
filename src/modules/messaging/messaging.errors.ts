@@ -113,3 +113,10 @@ export class TemplateNotApprovedError extends AppError {
     });
   }
 }
+
+/** 404: not a queue operators can act on. */
+export class QueueNotKnownError extends NotFoundError {
+  constructor(queue: string) {
+    super('QUEUE_NOT_KNOWN', 'No such queue.', { details: { queue } });
+  }
+}

@@ -54,7 +54,7 @@ The workflow and the Definition of Done for every task are in [CONVENTIONS.md](C
 | M12 | Lifecycle, feeder and sweeper | M6, M11 | Done |
 | M13 | Campaign reads, export and attribution | M12 | Done |
 | M14 | Inbox, direct messages and suppressions | M8 | Done |
-| M15 | Messaging operations | M12 | Not started |
+| M15 | Messaging operations | M12 | Done |
 | M16 | End-to-end and load test (local) | M13–M15 | Not started |
 | M17 | HeliumAdmin integration | M16 | Not started |
 | M18 | Rollout | M17, F25, F26 | Not started (needs AWS) |

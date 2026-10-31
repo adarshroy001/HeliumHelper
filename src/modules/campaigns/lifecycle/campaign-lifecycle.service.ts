@@ -6,7 +6,7 @@ import type { Actor } from '../../../common/auth/index.js';
 import { DB, withTransaction } from '../../../infrastructure/database/index.js';
 import { QueuePublisher } from '../../../infrastructure/queue/index.js';
 import { AuditService } from '../../audit/index.js';
-import { AccountsService, messagingKeys, TemplatesService } from '../../messaging/index.js';
+import { AccountsService, DeliveryLedger, messagingKeys, TemplatesService } from '../../messaging/index.js';
 import type { Campaign, CampaignDocument, CampaignStatus } from '../campaign.schema.js';
 import { CampaignInvalidError, CampaignNotFoundError, CampaignStateError } from '../campaigns.errors.js';
 import { CampaignsRepository } from '../campaigns.repository.js';
@@ -32,6 +32,7 @@ export class CampaignLifecycleService {
     private readonly audit: AuditService,
     private readonly publisher: QueuePublisher,
     private readonly redis: Redis,
+    private readonly ledger: DeliveryLedger,
   ) {}
 
   async start(id: string, actor: Actor, confirmTotal?: number): Promise<CampaignDocument> {
@@ -136,6 +137,22 @@ export class CampaignLifecycleService {
       command: 'test',
       phones: [...phones],
     });
+  }
+
+  /**
+   * Rebuilds a campaign's counters and ranks from the database (after Redis lost them), and re-activates it if it
+   * is sending, so its Redis state and feed are back.
+   */
+  async reconcile(campaign: CampaignDocument): Promise<Record<string, number>> {
+    const id = String(campaign._id);
+    const counts = await this.ledger.rebuildCounters(id, campaign.totals?.total ?? 0);
+    if (campaign.status === 'sending') {
+      await this.publisher.publish(CAMPAIGN_CONTROL_QUEUE, campaignCommand, {
+        campaignId: id,
+        command: 'start',
+      });
+    }
+    return counts;
   }
 
   /** What must hold before sending (design.md#lifecycle): template approved, account healthy, audience confirmed. */

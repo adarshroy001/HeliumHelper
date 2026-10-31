@@ -55,7 +55,7 @@ The sender polls p1 first and moves to p2 only when p1 returned nothing on its l
 ### Sender loop
 
 ```text
-gate:     kill switch, account paused, or number paused until T → don't receive
+gate:     kill switch, account paused (or marketing paused, for p2) → don't receive; checked again per message
 tokens:   k = takeTokens(phoneNumberId, want = batch size, priority)   (Lua; p2 leaves 20% for p1)
 receive:  up to k messages; refund the unused tokens
 for each message:

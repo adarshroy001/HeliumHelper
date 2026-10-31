@@ -8,6 +8,7 @@ import { MediaService } from './api/media.service.js';
 import { ContactsRepository } from './data/contacts.repository.js';
 import { MediaRepository } from './data/media.repository.js';
 import { InboxService } from './inbox/inbox.service.js';
+import { MessagingOpsService } from './ops/messaging-ops.service.js';
 import { CampaignInsights } from './ledger/campaign-insights.js';
 import { DeliveryLedger } from './ledger/delivery-ledger.js';
 import { SuppressionsService } from './suppressions/suppressions.service.js';
@@ -88,6 +89,7 @@ import { GraphClient } from './whatsapp/graph-client.js';
     MediaRepository,
     ContactsRepository,
     InboxService,
+    MessagingOpsService,
     MediaService,
     DeliveryLedger,
     CampaignInsights,
@@ -130,6 +132,7 @@ import { GraphClient } from './whatsapp/graph-client.js';
     CampaignInsights,
     SuppressionsService,
     InboxService,
+    MessagingOpsService,
   ],
 })
 export class MessagingModule {}

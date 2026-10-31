@@ -25,6 +25,8 @@ import { SendFlusher } from './send-flusher.js';
 const CLAIM_SECONDS = 3 * 24 * 60 * 60;
 /** Retryable failures before a delivery is marked failed instead of retried again. */
 const MAX_ATTEMPTS = 5;
+/** How long a message waits in the queue when sending was switched off after it was received. */
+const SWITCHED_OFF_HOLD_SECONDS = 10;
 /** How long a campaign's state is cached per process: pause and stop take effect within this. */
 const STATE_CACHE_MS = 1_000;
 
@@ -35,6 +37,7 @@ const STATE_CACHE_MS = 1_000;
 @Injectable()
 export class SenderService {
   private readonly states = new Map<string, { state: string | null; at: number }>();
+  private switches = { kill: false, paused: false, marketing: false, at: 0 };
   private replicas: Promise<number> | undefined;
 
   constructor(
@@ -53,19 +56,31 @@ export class SenderService {
 
   /**
    * The gate before each receive: nothing is taken off the queue while sending is switched off, the account is
-   * paused, or (for campaign sends) marketing is paused on the account.
+   * paused, or (for campaign sends) marketing is paused on the account. Checked again for each message (cached for a
+   * second), because a long poll already waiting can still deliver one.
    */
   async canSend(priority: Priority): Promise<boolean> {
-    const [kill, paused, marketing] = await this.redis.mget(
-      keys.killSwitch(),
-      keys.accountPaused(MAIN_ACCOUNT_ID),
-      keys.marketingPaused(MAIN_ACCOUNT_ID),
-    );
-    return kill === null && paused === null && (priority === 1 || marketing === null);
+    if (Date.now() - this.switches.at >= STATE_CACHE_MS) {
+      const [kill, paused, marketing] = await this.redis.mget(
+        keys.killSwitch(),
+        keys.accountPaused(MAIN_ACCOUNT_ID),
+        keys.marketingPaused(MAIN_ACCOUNT_ID),
+      );
+      this.switches = {
+        kill: kill !== null,
+        paused: paused !== null,
+        marketing: marketing !== null,
+        at: Date.now(),
+      };
+    }
+    const { kill, paused, marketing } = this.switches;
+    return !kill && !paused && (priority === 1 || !marketing);
   }
 
   async send(data: DeliverySendData, priority: Priority, receiveCount: number): Promise<Outcome> {
     const { deliveryId: id, campaignId } = data;
+    // Switched off since this message was received: back to the queue, without counting as a failure.
+    if (!(await this.canSend(priority))) return hold(SWITCHED_OFF_HOLD_SECONDS);
     const held = await this.campaignHold(id, campaignId);
     if (held !== null) return held;
     if (data.businessInitiated && (await this.redis.sismember(keys.suppressed(), data.to)) === 1) {
@@ -73,7 +88,8 @@ export class SenderService {
     }
 
     await this.limiter.acquire(data.phoneNumberId, priority, this.config.account.maxMps);
-    // Waiting for a token can take seconds: a pause or stop in the meantime still applies.
+    // Waiting for a token can take seconds: a pause, stop or switch-off in the meantime still applies.
+    if (!(await this.canSend(priority))) return hold(SWITCHED_OFF_HOLD_SECONDS);
     const heldAfterWait = await this.campaignHold(id, campaignId);
     if (heldAfterWait !== null) return heldAfterWait;
 
