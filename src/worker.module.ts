@@ -9,6 +9,7 @@ import { ConsumerRunner } from './infrastructure/queue/consumer/consumer-runner.
 import { LocalScheduler, QueueModule, SCHEDULES as SCHEDULES_TOKEN } from './infrastructure/queue/index.js';
 import { RedisModule } from './infrastructure/redis/index.js';
 import { RequestContextModule } from './infrastructure/request-context/request-context.module.js';
+import { MessagingModule } from './modules/messaging/index.js';
 import { SystemModule } from './modules/system/index.js';
 import { SCHEDULES } from './schedules.js';
 
@@ -28,6 +29,7 @@ import { SCHEDULES } from './schedules.js';
     DiscoveryModule,
     HealthModule,
     SystemModule,
+    MessagingModule,
   ],
   providers: [ConsumerRunner, LocalScheduler, { provide: SCHEDULES_TOKEN, useValue: SCHEDULES }],
 })

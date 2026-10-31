@@ -9,6 +9,7 @@ WhatsApp messaging ([ADR-0015](../../../docs/adr/0015-whatsapp-messaging.md)): a
 | `whatsapp/` | Plain TypeScript for Meta, with no Nest or database: the Graph client, error classification, phone normalization, template helpers, webhook signature and splitting. A Lambda can import these |
 | `webhooks/` | The webhook route and the intake service that queues each change |
 | `data/` | Schemas and repositories: the only code that touches the module's collections |
+| `sending/` | The sender: consumers for `wa-send-p1`/`p2`, rate limiter, result flusher, campaign counters, Lua scripts |
 
 ## Owns
 
@@ -22,6 +23,9 @@ WhatsApp messaging ([ADR-0015](../../../docs/adr/0015-whatsapp-messaging.md)): a
 | Error | `WEBHOOK_SIGNATURE_INVALID` (401), `WEBHOOK_VERIFICATION_FAILED` (403), `WEBHOOK_NOT_QUEUED` (503) | |
 | Collection | `wa_accounts`, `templates`, `media`, `deliveries`, `inbound_messages`, `conversations`, `suppressions`, `unmatched_statuses` | Migration 0002; fields and indexes in [data-model.md](../../../docs/modules/messaging/data-model.md) |
 | Modules | `MessagingModule` (both processes), `MessagingApiModule` (API routes) | The worker imports only the first |
+| Queue | `wa-send-p1`, `wa-send-p2` (+ `-dlq`) | Message `wa.delivery.send`; consumers `SendP1Consumer`, `SendP2Consumer` |
+| Redis | `wa:rl`, `wa:rate`, `wa:pause` (per number); `wa:camp`, `wa:camp-pause`, `wa:st`, `wa:cnt` (per campaign); `wa:claim`, `wa:wamid`, `wa:unconfirmed`, `wa:uniq`, `wa:supp`, `cfg:wa-pause`, `wa:acct-paused` | Built in `messaging.keys.ts` |
+| Lua | `takeTokens`, `onRateLimited`, `maybeRaiseRate`, `transition` | `sending/*.scripts.ts` |
 
 More collections, queues, routes and error codes are added by M4–M15 and listed here as they land.
 

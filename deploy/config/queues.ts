@@ -42,4 +42,17 @@ export const QUEUES: readonly QueueDefinition[] = [
     maxReceiveCount: 5,
     alarms: { oldestMessageSeconds: 300, dlqMessages: 1 },
   },
+  {
+    name: 'wa-send-p1',
+    visibilitySeconds: 30,
+    // Rate-limit waits happen before receiving, so only crash loops reach this.
+    maxReceiveCount: 15,
+    alarms: { oldestMessageSeconds: 60, dlqMessages: 1 },
+  },
+  {
+    name: 'wa-send-p2',
+    visibilitySeconds: 30,
+    maxReceiveCount: 15,
+    alarms: { oldestMessageSeconds: 15 * 60, dlqMessages: 1 },
+  },
 ];

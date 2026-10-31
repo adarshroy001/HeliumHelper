@@ -75,6 +75,15 @@ flush:    every 500 ms or 500 results: ONE deliveries.bulkWrite, then counters, 
 
 The database write comes before the SQS delete. If the task dies after Meta accepted a message, the message comes back, finds its claim, and is skipped; the status webhook then fills in the delivery, because it carries our delivery ID.
 
+How it is built (`src/modules/messaging/sending/`):
+
+- Each message is handled on its own by the consumer framework (up to 200 in flight per process on p2, 50 on p1). Batching comes from two shared parts: the `RateLimiter` asks Redis for as many tokens as there are handlers waiting on a number, and the `SendFlusher` writes every result from the last 200 ms (or 500 results) in one `bulkWrite`; each handler's message is deleted only after its batch is written.
+- A campaign delivery is sent only while its campaign's Redis state is `sending`. A missing state (not started, or Redis lost it) means not now: the delivery stays pending.
+- The delivery goes into `wa:unconfirmed` as soon as it is claimed, before the call, and leaves it on a definite result. A process that dies mid-call leaves it there for the sweeper.
+- A retryable failure is retried with backoff up to 5 attempts, then the delivery is marked failed (`gave up after 5 attempts`).
+- A campaign-level fatal error (the template doesn't exist) sets the campaign's state to `paused` and writes the reason to `wa:camp-pause:{campaignId}`; the campaign sweeper (M12) records the pause on the campaign. An account-level fatal error (token, ban) sets `wa:acct-paused:{main}` and pauses the account in `wa_accounts`; the gate then stops all receiving.
+- `WAIT 1` after a claim runs only when the Redis primary has a replica (ElastiCache), not locally.
+
 ### Rate limits
 
 | Limit | Scope | How |

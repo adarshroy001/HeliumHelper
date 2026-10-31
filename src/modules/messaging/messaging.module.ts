@@ -28,6 +28,11 @@ import {
   WaAccount,
   WaAccountSchema,
 } from './data/messaging.schemas.js';
+import { CampaignCounters } from './sending/campaign-counters.js';
+import { RateLimiter } from './sending/rate-limiter.js';
+import { SendP1Consumer, SendP2Consumer } from './sending/send.consumers.js';
+import { SendFlusher } from './sending/send-flusher.js';
+import { SenderService } from './sending/sender.service.js';
 import { GraphClient } from './whatsapp/graph-client.js';
 
 /**
@@ -59,6 +64,12 @@ import { GraphClient } from './whatsapp/graph-client.js';
     ConversationsRepository,
     SuppressionsRepository,
     UnmatchedStatusesRepository,
+    CampaignCounters,
+    RateLimiter,
+    SendFlusher,
+    SenderService,
+    SendP1Consumer,
+    SendP2Consumer,
     {
       provide: GraphClient,
       inject: [whatsappConfig.KEY],
@@ -70,6 +81,6 @@ import { GraphClient } from './whatsapp/graph-client.js';
         }),
     },
   ],
-  exports: [GraphClient],
+  exports: [GraphClient, CampaignCounters],
 })
 export class MessagingModule {}
