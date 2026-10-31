@@ -29,7 +29,7 @@ export const WA_SEND_P2_QUEUE = 'wa-send-p2';
 const templatePayload = z.strictObject({
   name: z.string().min(1),
   language: z.strictObject({ code: z.string().min(2) }),
-  components: z.array(z.record(z.string(), z.unknown())).optional(),
+  components: z.array(z.record(z.string(), z.unknown())).readonly().optional(),
 });
 
 /**

@@ -160,11 +160,11 @@ For each inbound message:
 2. Open the service window (`wa:csw:{phone}`, 24 h) and update the conversation (last message, unread count).
 3. **Attribute** it through `context.id` (the message it replies to) → `wa:wamid:` or the index → the delivery and its campaign. Never "the latest message to that phone". Then:
     - set `delivery.reply` (`firstAt`, `lastAt`, `count`, `lastButton`);
-    - `HINCRBY wa:btn:{campaignId} <button>` for poll results;
+    - poll results count one vote per recipient, their first button: `HSETNX wa:vote:{campaignId} <deliveryId> <button>`, then `HINCRBY wa:btn:{campaignId} <button>`;
     - count `replied` once per delivery.
-4. **Opt-out:** `STOP`, `UNSUBSCRIBE` and the configured keywords (exact match, any case, trimmed), or a button whose payload is in the opt-out list. The number goes into `suppressions` and `wa:supp`, and `optedOut` is counted.
-5. **Auto-reply,** when the campaign's rule matches (`any_button` or `any_reply`, optional per-button text):
-    - insert a delivery with `_id = hash('ar', campaignDeliveryId)`; a duplicate key means the reply was already sent;
+4. **Opt-out:** `STOP`, `UNSUBSCRIBE` and the configured keywords (exact match, any case, trimmed), or a button whose payload is in the opt-out list or whose text is an opt-out word. The number goes into `suppressions` and `wa:supp`, and `optedOut` is counted once per campaign recipient (`wa:optout:{campaignId}`), whichever of their messages created the suppression.
+5. **Auto-reply,** when the campaign's rule matches (`any_button` or `any_reply`, optional per-button text). The rule is read from `wa:autoreply:{campaignId}`, which the campaign lifecycle publishes when the campaign starts, so this consumer never reads campaign documents:
+    - insert a delivery with `_id = ar-<sha256(campaignDeliveryId)>`; a duplicate key means it exists already, and it is queued again only if still `pending` (a lost publish is recovered; the sender's claim prevents a second send);
     - otherwise queue it on `wa-send-p1`;
     - skip messages older than `AUTO_REPLY_MAX_AGE` (1 hour), so an outage doesn't flood people later.
 

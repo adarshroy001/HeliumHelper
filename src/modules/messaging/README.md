@@ -11,6 +11,7 @@ WhatsApp messaging ([ADR-0015](../../../docs/adr/0015-whatsapp-messaging.md)): a
 | `data/` | Schemas and repositories: the only code that touches the module's collections |
 | `sending/` | The sender: consumers for `wa-send-p1`/`p2`, rate limiter, result flusher, campaign counters, Lua scripts |
 | `statuses/` | The status consumer: parsing, correlation (callback data, wamid map, index), batched writes and counters |
+| `inbound/` | The inbound consumer: storing replies once, attribution, opt-out, poll votes, auto-replies |
 
 ## Owns
 
@@ -28,6 +29,8 @@ WhatsApp messaging ([ADR-0015](../../../docs/adr/0015-whatsapp-messaging.md)): a
 | Redis | `wa:rl`, `wa:rate`, `wa:pause` (per number); `wa:camp`, `wa:camp-pause`, `wa:st`, `wa:cnt` (per campaign); `wa:claim`, `wa:wamid`, `wa:unconfirmed`, `wa:uniq`, `wa:supp`, `cfg:wa-pause`, `wa:acct-paused` | Built in `messaging.keys.ts` |
 | Lua | `takeTokens`, `onRateLimited`, `maybeRaiseRate`, `transition` | `sending/*.scripts.ts` |
 | Consumer | `StatusConsumer` on `wa-status` | Unmatched statuses are retried 5 times, 30 s apart, then kept in `unmatched_statuses` |
+| Consumer | `InboundConsumer` on `wa-inbound` | Idempotent by wamid; auto-replies go out on `wa-send-p1` |
+| Redis | `wa:csw` (service window, 24 h), `wa:vote`, `wa:btn`, `wa:optout`, `wa:autoreply` (per campaign) | `wa:autoreply` is written by the campaign lifecycle (M12) |
 
 More collections, queues, routes and error codes are added by M4–M15 and listed here as they land.
 

@@ -1,4 +1,4 @@
-import { type Connection, Types } from 'mongoose';
+import mongoose, { type Connection, Types } from 'mongoose';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { connectTestDatabase } from '../../../../test/helpers/mongo.js';
 import { applyMigrations } from '../../../../test/helpers/migrations.js';
@@ -20,6 +20,9 @@ import {
   WaAccount,
   WaAccountSchema,
 } from './messaging.schemas.js';
+
+// As the app sets it (src/infrastructure/database/database.module.ts).
+mongoose.set('strictQuery', 'throw');
 
 describe('messaging repositories (real MongoDB)', () => {
   let db: Connection & { dropAndClose: () => Promise<void> };
@@ -182,15 +185,21 @@ describe('messaging repositories (real MongoDB)', () => {
 
     it('works with deterministic string IDs, as auto-replies use', async () => {
       await deliveries.insertMany([
-        delivery('919800000051', { _id: 'ar:abc', dedupeKey: undefined, campaignId: undefined }),
+        delivery('919800000051', {
+          _id: 'ar-abe62b6b7c967a6d606cc0cc',
+          dedupeKey: undefined,
+          campaignId: undefined,
+        }),
       ]);
       await deliveries.applySendOutcomes([
-        { id: 'ar:abc', result: 'accepted', wamid: 'wamid.ar', at: new Date() },
+        { id: 'ar-abe62b6b7c967a6d606cc0cc', result: 'accepted', wamid: 'wamid.ar', at: new Date() },
       ]);
 
-      expect(await statusOf('ar:abc')).toBe('accepted');
+      expect(await statusOf('ar-abe62b6b7c967a6d606cc0cc')).toBe('accepted');
       expect(
-        await deliveries.insertMany([delivery('919800000051', { _id: 'ar:abc', dedupeKey: undefined })]),
+        await deliveries.insertMany([
+          delivery('919800000051', { _id: 'ar-abe62b6b7c967a6d606cc0cc', dedupeKey: undefined }),
+        ]),
       ).toEqual({
         inserted: 0,
         duplicates: 1,

@@ -23,4 +23,14 @@ export const keys = {
   unconfirmed: () => redisKey('wa', 'unconfirmed', 'global'),
   uniqueUsers: (portfolioId: string, hour: string) => redisKey('wa', 'uniq', `${portfolioId}:${hour}`),
   suppressed: () => redisKey('wa', 'supp', 'global'),
+  /** Open while a customer's last message is under 24 h old: free-form replies are allowed. */
+  serviceWindow: (phone: string) => redisKey('wa', 'csw', phone),
+  /** The first button each recipient tapped (deliveryId → button), so a poll counts one vote per person. */
+  votes: (campaignId: string) => redisKey('wa', 'vote', campaignId),
+  /** Recipients of a campaign who opted out by replying to it (deliveryId → 1), counted once each. */
+  optOuts: (campaignId: string) => redisKey('wa', 'optout', campaignId),
+  /** Poll results: button → votes. */
+  buttons: (campaignId: string) => redisKey('wa', 'btn', campaignId),
+  /** A campaign's auto-reply rule (JSON), published by the campaign lifecycle while it runs. */
+  autoReply: (campaignId: string) => redisKey('wa', 'autoreply', campaignId),
 } as const;

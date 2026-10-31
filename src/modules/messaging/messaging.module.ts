@@ -33,6 +33,8 @@ import { RateLimiter } from './sending/rate-limiter.js';
 import { SendP1Consumer, SendP2Consumer } from './sending/send.consumers.js';
 import { SendFlusher } from './sending/send-flusher.js';
 import { SenderService } from './sending/sender.service.js';
+import { InboundConsumer } from './inbound/inbound.consumer.js';
+import { InboundService } from './inbound/inbound.service.js';
 import { StatusConsumer } from './statuses/status.consumer.js';
 import { StatusService } from './statuses/status.service.js';
 import { GraphClient } from './whatsapp/graph-client.js';
@@ -74,6 +76,8 @@ import { GraphClient } from './whatsapp/graph-client.js';
     SendP2Consumer,
     StatusService,
     StatusConsumer,
+    InboundService,
+    InboundConsumer,
     {
       provide: GraphClient,
       inject: [whatsappConfig.KEY],

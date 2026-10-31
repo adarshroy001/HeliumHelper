@@ -71,6 +71,41 @@ export class DeliveriesRepository {
     };
   }
 
+  /**
+   * Records a reply to a delivery: first and last time, count, last button. Returns whether it was the first reply,
+   * so `replied` is counted once per delivery.
+   */
+  async recordReply(id: string, at: Date, button?: string): Promise<{ first: boolean }> {
+    const _id = toDeliveryId(id);
+    const first = await this.model
+      .updateOne(
+        { _id, reply: { $exists: false } },
+        {
+          $set: {
+            reply: {
+              firstAt: at,
+              lastAt: at,
+              count: 1,
+              ...(button === undefined ? {} : { lastButton: button }),
+            },
+          },
+        },
+      )
+      .exec();
+    if (first.modifiedCount === 1) return { first: true };
+    await this.model
+      .updateOne(
+        { _id },
+        {
+          $max: { 'reply.lastAt': at },
+          $inc: { 'reply.count': 1 },
+          ...(button === undefined ? {} : { $set: { 'reply.lastButton': button } }),
+        },
+      )
+      .exec();
+    return { first: false };
+  }
+
   /** Writes a batch of send results in one round trip. */
   async applySendOutcomes(outcomes: readonly SendOutcome[]): Promise<void> {
     const ops: AnyBulkWriteOperation<Delivery>[] = [];
