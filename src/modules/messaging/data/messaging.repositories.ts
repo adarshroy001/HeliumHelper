@@ -65,6 +65,20 @@ export class InboundMessagesRepository {
     @InjectModel(InboundMessage.name, DB.messaging) private readonly model: Model<InboundMessage>,
   ) {}
 
+  /** A campaign's replies, newest first, before `before`. */
+  async campaignReplies(
+    campaignId: string,
+    before: Date | undefined,
+    limit: number,
+  ): Promise<InboundMessage[]> {
+    return this.model
+      .find({ campaignId, ...(before === undefined ? {} : { receivedAt: { $lt: before } }) })
+      .sort({ receivedAt: -1 })
+      .limit(limit)
+      .lean<InboundMessage[]>()
+      .exec();
+  }
+
   /** Inserts messages by wamid; returns the wamids that were new. A duplicate webhook stores nothing. */
   async insertNew(messages: readonly InboundMessage[]): Promise<Set<string>> {
     if (messages.length === 0) return new Set();

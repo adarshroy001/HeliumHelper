@@ -279,4 +279,65 @@ export class DeliveriesRepository {
   async markUnconfirmedRetry(id: string): Promise<void> {
     await this.model.updateOne({ _id: toDeliveryId(id) }, { $set: { unconfirmedRetry: true } }).exec();
   }
+
+  /** One page of a campaign's recipients, by `seq`, with optional filters. */
+  async listCampaign(
+    campaignId: string,
+    filter: { status?: DeliveryStatus; reply?: 'any' | 'none' | { button: string }; phoneEndsWith?: string },
+    after: number,
+    limit: number,
+  ): Promise<Delivery[]> {
+    const query: Record<string, unknown> = {
+      campaignId: new Types.ObjectId(campaignId),
+      seq: { $gt: after },
+    };
+    if (filter.status !== undefined) query['status'] = filter.status;
+    if (filter.reply === 'any') query['reply'] = { $exists: true };
+    else if (filter.reply === 'none') query['reply'] = { $exists: false };
+    else if (filter.reply !== undefined) query['reply.lastButton'] = filter.reply.button;
+    if (filter.phoneEndsWith !== undefined)
+      query['to'] = new RegExp(`${filter.phoneEndsWith.replace(/\D/g, '')}$`);
+    return this.model.find(query).sort({ seq: 1 }).limit(limit).lean<Delivery[]>().exec();
+  }
+
+  /** Every delivery of a campaign, in order, for exports. */
+  campaignCursor(campaignId: string) {
+    return this.model
+      .find({ campaignId: new Types.ObjectId(campaignId) })
+      .sort({ seq: 1 })
+      .lean<Delivery>()
+      .cursor({ batchSize: 1000 });
+  }
+
+  /** When each of `phones` got this campaign's message delivered (or read), for attribution. */
+  async deliveredAt(campaignId: string, phones: readonly string[]): Promise<Map<string, Date>> {
+    if (phones.length === 0) return new Map();
+    const rows = await this.model
+      .find(
+        {
+          campaignId: new Types.ObjectId(campaignId),
+          to: { $in: [...phones] },
+          status: { $in: ['delivered', 'read'] },
+        },
+        { to: 1, deliveredAt: 1, readAt: 1 },
+      )
+      .lean<{ to: string; deliveredAt?: Date; readAt?: Date }[]>()
+      .exec();
+    return new Map(
+      rows.flatMap((r) =>
+        (r.deliveredAt ?? r.readAt) === undefined ? [] : [[r.to, (r.deliveredAt ?? r.readAt) as Date]],
+      ),
+    );
+  }
+
+  /** Delivery counts by status, from the database (the record; used when counters were lost). */
+  async countByStatus(campaignId: string): Promise<Record<string, number>> {
+    const rows = await this.model
+      .aggregate<{ _id: string; n: number }>([
+        { $match: { campaignId: new Types.ObjectId(campaignId) } },
+        { $group: { _id: '$status', n: { $sum: 1 } } },
+      ])
+      .exec();
+    return Object.fromEntries(rows.map((r) => [r._id, r.n]));
+  }
 }

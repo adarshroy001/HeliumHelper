@@ -6,6 +6,7 @@ import type { CampaignDocument } from '../campaign.schema.js';
 import { CampaignsRepository } from '../campaigns.repository.js';
 import { CampaignActivationService } from '../lifecycle/campaign-activation.service.js';
 import { CampaignSweeper } from '../lifecycle/campaign-sweeper.service.js';
+import { CampaignExportsService } from '../reads/campaign-export.js';
 import { CAMPAIGN_CONTROL_QUEUE, campaignCommand, type CampaignCommand } from './campaign-control.js';
 
 const EMPTY = 'Nobody is left in the audience after exclusions, suppressions and the frequency cap.';
@@ -18,6 +19,7 @@ export class CampaignControlConsumer implements MessageHandler<CampaignCommand> 
     private readonly builder: AudienceBuilder,
     private readonly activation: CampaignActivationService,
     private readonly sweeper: CampaignSweeper,
+    private readonly exports: CampaignExportsService,
     private readonly logger: PinoLogger,
   ) {
     logger.setContext(CampaignControlConsumer.name);
@@ -26,6 +28,10 @@ export class CampaignControlConsumer implements MessageHandler<CampaignCommand> 
   async handle(command: CampaignCommand): Promise<Outcome> {
     if (command.command === 'sweep') {
       await this.sweeper.sweep();
+      return ack();
+    }
+    if (command.command === 'export') {
+      await this.exports.run(command.exportId);
       return ack();
     }
     const campaign = await this.campaigns.findById(command.campaignId);

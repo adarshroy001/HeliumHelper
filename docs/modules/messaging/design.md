@@ -260,11 +260,14 @@ Up to 5 numbers, sent through `wa-send-p1` with the campaign's template and the 
 
 ### Stats, cost and attribution
 
-- **Live stats** come from `wa:cnt:{campaignId}`: counts, current rate, state, `waitingForLimit`, and the estimated finish = remaining ÷ current rate. After close, from `countsSnapshot`.
+- **Live stats** come from `wa:cnt:{campaignId}`: counts, rates (delivered, read, replied, failed), sends in flight, why the feeder is holding it back (`wa:camp-wait`), and the estimated finish = remaining ÷ the campaign's rate (its speed cap, or the number's maximum). After close, from `countsSnapshot`.
+- **Recipients** are paged by `seq` (`after`, `limit`), filtered by status, reply (`any`, `none`, `button:<label>`) and the last digits of the phone.
+- **Replies and poll results:** every quick-reply button of the template with its votes (one per recipient, their first tap), and the replies, newest first.
+- **Export:** queued (`campaign.command.run` `export`), written row by row from a cursor to the blob store (`exports/<id>.csv`, HeliumAdmin's columns plus pricing and wamid), downloaded from `GET /exports/:id/file`; kept 7 days.
 - **Cost:**
     - the estimate is the total × the rate card price for the template's category (`MESSAGING_PRICE_*` config);
     - the actual cost is the count of billable deliveries per pricing category from status webhooks × the same prices.
-- **Attribution:** orders in the main database whose phone matches a delivered recipient, placed within N days (default 7) after delivery. One aggregation per request, cached for 10 minutes. It reports orders, revenue, and the conversion rate.
+- **Attribution:** orders in the main database (not cancelled or refunded) whose delivery phone matches a delivered recipient, placed within N days (default 7) after that recipient's delivery. The orders placed in the possible window are streamed and matched to deliveries in batches of 1,000; the result (orders, buyers, revenue) is cached for 10 minutes.
 
 ## Failure handling
 

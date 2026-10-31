@@ -12,6 +12,8 @@ WhatsApp campaigns ([ADR-0015](../../../docs/adr/0015-whatsapp-messaging.md)): d
 | Queue | `campaign-control` (+ `-dlq`) | Message `campaign.command.run` (`build`, `start`, `test`, `sweep`); consumer `CampaignControlConsumer` |
 | Worker loop | `campaign-feeder` | `CampaignFeeder`: one leader; name it in `WORKER_QUEUES` (or `*`) |
 | Schedule | `campaign-sweep` (every minute) | `CampaignSweeper`: due schedules, automatic pauses, completion, stop finalizing, close after 72 h, stuck builds |
+| Routes (reads) | `GET /campaigns/:id/stats`, `/deliveries`, `/replies`, `/attribution`; `POST /campaigns/:id/exports`, `GET /exports/:id`, `GET /exports/:id/file` | Permission `campaigns:read` |
+| Collection | `exports` | Migration 0004; TTL 7 days; the file in the blob store (`exports/<id>.csv`) |
 | Routes (lifecycle) | `POST /campaigns/:id/start`, `PUT`/`DELETE /campaigns/:id/schedule`, `POST /campaigns/:id/pause`, `/resume`, `/stop`, `/test` | Permission `campaigns:send` (test: `campaigns:write`) |
 | Reads | The main database's `users`, `orders`, `abandonedcarts`, `newwaitlists` | Read-only, secondary preferred, at most 5,000 documents a second (`AudienceSourcesRepository`) |
 | Permissions | `campaigns:read`, `campaigns:write` | Roles in `src/common/auth/permissions.ts` |

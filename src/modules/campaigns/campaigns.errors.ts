@@ -41,3 +41,9 @@ export class CsvInvalidError extends AppError {
     super('CSV_INVALID', `The CSV file can't be used: ${problem}`, { details: { problem } });
   }
 }
+
+export class ExportNotFoundError extends NotFoundError {
+  constructor(exportId: string) {
+    super('EXPORT_NOT_FOUND', 'Export not found, or expired.', { details: { exportId } });
+  }
+}

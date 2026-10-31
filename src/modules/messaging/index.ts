@@ -41,3 +41,4 @@ export {
 export { type CampaignRecipient, DeliveryLedger, type RetargetOutcome } from './ledger/delivery-ledger.js';
 export { SuppressionsService } from './suppressions/suppressions.service.js';
 export { type DeliveryPayload } from './data/delivery.schema.js';
+export { CampaignInsights } from './ledger/campaign-insights.js';

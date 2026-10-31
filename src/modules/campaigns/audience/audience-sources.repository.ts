@@ -103,6 +103,39 @@ export class AudienceSourcesRepository {
     return { productModels, utmSources, waitlistSources };
   }
 
+  /** Orders placed in a period (not cancelled or refunded), for attribution: delivery phone, time, amount. */
+  async *ordersBetween(
+    from: Date,
+    to: Date,
+  ): AsyncGenerator<{ phone: unknown; createdAt: Date; amount: number }> {
+    const cursor = this.collection('orders').find(
+      { createdAt: { $gte: from, $lte: to }, status: { $nin: ['cancelled', 'orderCancelled', 'refunded'] } },
+      {
+        ...READ,
+        projection: {
+          'deliveryAddress.phone': 1,
+          createdAt: 1,
+          sellingPrice: 1,
+          'payment.amount': 1,
+          'product.totalPrice': 1,
+        },
+        batchSize: 1000,
+      },
+    );
+    for await (const doc of cursor) {
+      const amount = [
+        doc['sellingPrice'],
+        (doc['payment'] as { amount?: unknown } | undefined)?.amount,
+        (doc['product'] as { totalPrice?: unknown } | undefined)?.totalPrice,
+      ].find((v): v is number => typeof v === 'number');
+      yield {
+        phone: (doc['deliveryAddress'] as { phone?: unknown } | undefined)?.phone,
+        createdAt: doc['createdAt'] as Date,
+        amount: amount ?? 0,
+      };
+    }
+  }
+
   /** Users by phone (any stored form), for names and emails of individual contacts and CSV rows. */
   async usersByPhones(variants: readonly string[]): Promise<SourceRecord[]> {
     if (variants.length === 0) return [];

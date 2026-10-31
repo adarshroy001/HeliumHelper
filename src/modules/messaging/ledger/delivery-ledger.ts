@@ -95,4 +95,20 @@ export class DeliveryLedger {
   pendingAfter(campaignId: string, cursor: number, limit: number) {
     return this.deliveries.pendingAfter(campaignId, cursor, limit);
   }
+
+  listCampaign(...args: Parameters<DeliveriesRepository['listCampaign']>) {
+    return this.deliveries.listCampaign(...args);
+  }
+
+  campaignCursor(campaignId: string) {
+    return this.deliveries.campaignCursor(campaignId);
+  }
+
+  deliveredAt(campaignId: string, phones: readonly string[]) {
+    return this.deliveries.deliveredAt(campaignId, phones);
+  }
+
+  countByStatus(campaignId: string) {
+    return this.deliveries.countByStatus(campaignId);
+  }
 }

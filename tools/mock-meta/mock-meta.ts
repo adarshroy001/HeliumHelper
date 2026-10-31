@@ -109,7 +109,11 @@ export async function startMockMeta(options: MockMetaOptions): Promise<MockMeta>
 
   function emitStatuses(message: SentMessage, outcome: 'ok' | 131026 | 131049): void {
     if (emitter === undefined) return;
-    const category = message.endpoint === 'marketing_messages' ? 'marketing' : 'utility';
+    // Like Meta: priced by the template's category; free text inside the window is a service message.
+    const category =
+      message.template === undefined
+        ? 'service'
+        : (templates.find((t) => t.name === message.template)?.category.toLowerCase() ?? 'utility');
     const base = {
       id: message.wamid,
       recipient_id: message.to,

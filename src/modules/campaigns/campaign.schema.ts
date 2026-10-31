@@ -164,3 +164,38 @@ export class CsvUpload {
 }
 export const CsvUploadSchema = SchemaFactory.createForClass(CsvUpload);
 export type CsvUploadDocument = Omit<CsvUpload, never> & { _id: Types.ObjectId };
+
+export const EXPORTS_COLLECTION = 'exports';
+
+/** A CSV export of a campaign's recipients, kept 7 days (TTL index from migration 0004). */
+@Schema({ collection: EXPORTS_COLLECTION, versionKey: false })
+export class CampaignExport {
+  @Prop({ required: true })
+  campaignId!: string;
+
+  @Prop({ type: String, required: true, enum: ['queued', 'running', 'done', 'failed'] })
+  status!: 'queued' | 'running' | 'done' | 'failed';
+
+  @Prop()
+  blobKey?: string;
+
+  @Prop()
+  rows?: number;
+
+  @Prop()
+  error?: string;
+
+  @Prop({ type: MongooseSchema.Types.Mixed, required: true })
+  requestedBy!: { service: string; userId?: string; email?: string };
+
+  @Prop({ required: true })
+  createdAt!: Date;
+
+  @Prop()
+  finishedAt?: Date;
+
+  @Prop({ required: true })
+  expireAt!: Date;
+}
+export const CampaignExportSchema = SchemaFactory.createForClass(CampaignExport);
+export type CampaignExportDocument = Omit<CampaignExport, never> & { _id: Types.ObjectId };

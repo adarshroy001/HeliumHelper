@@ -52,7 +52,7 @@ The workflow and the Definition of Done for every task are in [CONVENTIONS.md](C
 | M10 | Campaign API and uploads | M5, M9 | Done |
 | M11 | Audience build | M10 | Done |
 | M12 | Lifecycle, feeder and sweeper | M6, M11 | Done |
-| M13 | Campaign reads, export and attribution | M12 | Not started |
+| M13 | Campaign reads, export and attribution | M12 | Done |
 | M14 | Inbox, direct messages and suppressions | M8 | Not started |
 | M15 | Messaging operations | M12 | Not started |
 | M16 | End-to-end and load test (local) | M13–M15 | Not started |

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { paginationQuery } from '../../common/validation/index.js';
+import { paginationQuery, queryInt } from '../../common/validation/index.js';
 
 // Request schemas of the campaigns routes (docs/modules/messaging/api.md). Audience and mapping shapes follow
 // HeliumAdmin's, so its composer can move over unchanged.
@@ -199,3 +199,27 @@ export const testCampaignSchema = z.strictObject({
   phones: z.array(z.string().min(10).max(20)).min(1).max(5),
 });
 export type TestCampaign = z.infer<typeof testCampaignSchema>;
+
+export const listDeliveriesQuery = z.strictObject({
+  status: z.enum(['pending', 'accepted', 'sent', 'delivered', 'read', 'failed', 'skipped']).optional(),
+  /** `any`, `none`, or `button:<label>`. */
+  reply: z.union([z.enum(['any', 'none']), z.string().regex(/^button:.{1,100}$/)]).optional(),
+  /** The last digits of a phone. */
+  q: z
+    .string()
+    .regex(/^\d{3,12}$/, 'Must be 3 to 12 digits.')
+    .optional(),
+  /** The `nextAfter` of the previous page. */
+  after: queryInt(z.number().int().min(-1)).default(-1),
+  limit: queryInt(z.number().int().min(1).max(200)).default(50),
+});
+export type ListDeliveriesQuery = z.infer<typeof listDeliveriesQuery>;
+
+export const listRepliesQuery = z.strictObject({
+  before: z.iso
+    .datetime({ offset: true })
+    .transform((v) => new Date(v))
+    .optional(),
+  limit: queryInt(z.number().int().min(1).max(200)).default(50),
+});
+export type ListRepliesQuery = z.infer<typeof listRepliesQuery>;

@@ -17,6 +17,7 @@ export const campaignCommand = defineMessage(
     z.strictObject({ command: z.literal('build'), campaignId: id }),
     z.strictObject({ command: z.literal('start'), campaignId: id }),
     z.strictObject({ command: z.literal('test'), campaignId: id, phones: z.array(z.string()).min(1).max(5) }),
+    z.strictObject({ command: z.literal('export'), exportId: id }),
     z.strictObject({ command: z.literal('sweep') }),
   ]),
 );

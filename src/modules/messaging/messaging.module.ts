@@ -6,6 +6,7 @@ import { AuditModule } from '../audit/index.js';
 import { AccountsService } from './accounts.service.js';
 import { MediaService } from './api/media.service.js';
 import { MediaRepository } from './data/media.repository.js';
+import { CampaignInsights } from './ledger/campaign-insights.js';
 import { DeliveryLedger } from './ledger/delivery-ledger.js';
 import { SuppressionsService } from './suppressions/suppressions.service.js';
 import { DeliveriesRepository } from './data/deliveries.repository.js';
@@ -85,6 +86,7 @@ import { GraphClient } from './whatsapp/graph-client.js';
     MediaRepository,
     MediaService,
     DeliveryLedger,
+    CampaignInsights,
     SuppressionsService,
     CampaignCounters,
     CampaignSignals,
@@ -121,6 +123,7 @@ import { GraphClient } from './whatsapp/graph-client.js';
     AccountsService,
     MediaService,
     DeliveryLedger,
+    CampaignInsights,
     SuppressionsService,
   ],
 })
