@@ -10,6 +10,7 @@ WhatsApp messaging ([ADR-0015](../../../docs/adr/0015-whatsapp-messaging.md)): a
 | `webhooks/` | The webhook route and the intake service that queues each change |
 | `data/` | Schemas and repositories: the only code that touches the module's collections |
 | `sending/` | The sender: consumers for `wa-send-p1`/`p2`, rate limiter, result flusher, campaign counters, Lua scripts |
+| `statuses/` | The status consumer: parsing, correlation (callback data, wamid map, index), batched writes and counters |
 
 ## Owns
 
@@ -26,6 +27,7 @@ WhatsApp messaging ([ADR-0015](../../../docs/adr/0015-whatsapp-messaging.md)): a
 | Queue | `wa-send-p1`, `wa-send-p2` (+ `-dlq`) | Message `wa.delivery.send`; consumers `SendP1Consumer`, `SendP2Consumer` |
 | Redis | `wa:rl`, `wa:rate`, `wa:pause` (per number); `wa:camp`, `wa:camp-pause`, `wa:st`, `wa:cnt` (per campaign); `wa:claim`, `wa:wamid`, `wa:unconfirmed`, `wa:uniq`, `wa:supp`, `cfg:wa-pause`, `wa:acct-paused` | Built in `messaging.keys.ts` |
 | Lua | `takeTokens`, `onRateLimited`, `maybeRaiseRate`, `transition` | `sending/*.scripts.ts` |
+| Consumer | `StatusConsumer` on `wa-status` | Unmatched statuses are retried 5 times, 30 s apart, then kept in `unmatched_statuses` |
 
 More collections, queues, routes and error codes are added by M4–M15 and listed here as they land.
 

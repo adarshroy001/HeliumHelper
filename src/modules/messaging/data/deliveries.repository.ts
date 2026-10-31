@@ -59,13 +59,16 @@ export class DeliveriesRepository {
   }
 
   /** The delivery Meta knows by this wamid: its ID and campaign, for correlation. */
-  async findByWamid(wamid: string): Promise<{ id: string; campaignId?: string } | null> {
+  async findByWamid(wamid: string): Promise<{ deliveryId: string; campaignId?: string } | null> {
     const found = await this.model
       .findOne({ providerMessageId: wamid }, { _id: 1, campaignId: 1 })
       .lean<{ _id: Types.ObjectId | string; campaignId?: Types.ObjectId }>()
       .exec();
     if (found === null) return null;
-    return { id: String(found._id), ...(found.campaignId ? { campaignId: String(found.campaignId) } : {}) };
+    return {
+      deliveryId: String(found._id),
+      ...(found.campaignId ? { campaignId: String(found.campaignId) } : {}),
+    };
   }
 
   /** Writes a batch of send results in one round trip. */

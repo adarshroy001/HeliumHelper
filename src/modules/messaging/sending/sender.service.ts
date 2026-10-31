@@ -16,6 +16,7 @@ import {
   META_THROUGHPUT_LIMITED,
   retryDelaySeconds,
 } from '../whatsapp/meta-errors.js';
+import { deliveryRef } from '../statuses/delivery-ref.js';
 import { type Priority, RateLimiter } from './rate-limiter.js';
 import { SendFlusher } from './send-flusher.js';
 
@@ -86,7 +87,7 @@ export class SenderService {
       endpoint: data.endpoint,
       to: data.to,
       content: data.payload,
-      callbackData: `d:${id}`,
+      callbackData: deliveryRef(id, campaignId),
     });
     return this.settle(data, result, priority, receiveCount);
   }
@@ -103,7 +104,7 @@ export class SenderService {
       const pipeline = this.redis
         .multi()
         .set(keys.claim(id), `ok:${result.wamid}`, 'EX', CLAIM_SECONDS)
-        .set(keys.wamid(result.wamid), id, 'EX', CLAIM_SECONDS)
+        .set(keys.wamid(result.wamid), deliveryRef(id, campaignId).slice(2), 'EX', CLAIM_SECONDS)
         .zrem(keys.unconfirmed(), id);
       if (data.businessInitiated) {
         const hour = keys.uniqueUsers(

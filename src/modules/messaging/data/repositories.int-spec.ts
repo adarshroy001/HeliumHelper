@@ -114,7 +114,7 @@ describe('messaging repositories (real MongoDB)', () => {
       expect(await statusOf(early._id)).toBe('accepted');
       expect(await statusOf(late._id)).toBe('sent');
       expect(await deliveries.findByWamid('wamid.early')).toEqual({
-        id: String(early._id),
+        deliveryId: String(early._id),
         campaignId: String(campaignId),
       });
     });

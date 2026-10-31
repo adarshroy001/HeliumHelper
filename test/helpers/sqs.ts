@@ -80,3 +80,25 @@ export async function receiveAll(sqs: SQSClient, url: string): Promise<Message[]
     messages.push(...Messages);
   }
 }
+
+/**
+ * Gives a test file its own set of queues, so workers of test files running in parallel never take each other's
+ * messages: creates `<prefix><name>` and its `-dlq` for each name, and points the app at them through
+ * `SQS_QUEUE_URL_PREFIX` (set it before creating the app; restore `process.env` afterwards).
+ */
+export async function isolatedQueues(
+  sqs: SQSClient,
+  prefix: string,
+  names: readonly string[],
+): Promise<void> {
+  const base = process.env['SQS_QUEUE_URL_PREFIX'] ?? '';
+  for (const name of names) {
+    for (const queue of [`${prefix}${name}-dlq`, `${prefix}${name}`]) {
+      const created = await sqs.send(
+        new CreateQueueCommand({ QueueName: queue, Attributes: { VisibilityTimeout: '30' } }),
+      );
+      if (created.QueueUrl === undefined) throw new Error(`queue ${queue} was not created`);
+    }
+  }
+  process.env['SQS_QUEUE_URL_PREFIX'] = `${base}${prefix}`;
+}

@@ -143,10 +143,12 @@ export async function startMockMeta(options: MockMetaOptions): Promise<MockMeta>
       send(start * 3, () => failed(131026, 'Message undeliverable'));
       return;
     }
-    // Jitter lets `delivered` sometimes overtake `sent`, as Meta's webhooks do.
-    if (random() >= settings.skipDeliveredRatio)
+    // Jitter lets `delivered` sometimes overtake `sent`, as Meta's webhooks do. Like Meta, `delivered` is only
+    // ever skipped for a message that is read.
+    const read = random() < settings.readRatio;
+    if (!read || random() >= settings.skipDeliveredRatio)
       send(start + start * 2 * random(), () => status('delivered', pricing));
-    if (random() < settings.readRatio) send(start * 5 + start * 5 * random(), () => status('read'));
+    if (read) send(start * 5 + start * 5 * random(), () => status('read'));
   }
 
   async function handleSend(phoneNumberId: string, endpoint: string, body: Json, res: ServerResponse) {

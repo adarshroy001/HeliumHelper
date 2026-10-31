@@ -12,7 +12,7 @@ import { WorkerModule } from '../src/worker.module.js';
 import { startMockMeta, type MockMeta } from '../tools/mock-meta/mock-meta.ts';
 import { createTestApp, type TestApp } from './helpers/create-test-app.js';
 import { applyMigrations } from './helpers/migrations.js';
-import { createTestQueue, testSqsClient } from './helpers/sqs.js';
+import { isolatedQueues, testSqsClient } from './helpers/sqs.js';
 
 // The app secret Vitest configures (vitest.config.ts); mock-meta signs with it.
 const APP_SECRET = 'test-app-secret-0123456789';
@@ -42,9 +42,7 @@ describe('sender (worker, MongoDB, Valkey, ElasticMQ, mock-meta)', () => {
 
   beforeAll(async () => {
     const sqs = testSqsClient();
-    for (const name of ['wa-send-p1', 'wa-send-p1-dlq', 'wa-send-p2', 'wa-send-p2-dlq']) {
-      await createTestQueue(sqs, { name, visibilitySeconds: 30 });
-    }
+    await isolatedQueues(sqs, 'sender-', ['wa-send-p1', 'wa-send-p2']);
     sqs.destroy();
     meta = await startMockMeta({
       port: 0,
@@ -116,7 +114,8 @@ describe('sender (worker, MongoDB, Valkey, ElasticMQ, mock-meta)', () => {
   }
 
   const delivery = (id: string) => deliveries.findById(new Types.ObjectId(id)).lean<Delivery>();
-  const sentTo = (deliveryId: string) => meta.sent.filter((m) => m.callbackData === `d:${deliveryId}`).length;
+  const sentTo = (deliveryId: string) =>
+    meta.sent.filter((m) => m.callbackData?.startsWith(`d:${deliveryId}`) === true).length;
 
   it('sends a campaign message once and records it as accepted, with its wamid and counters', async () => {
     const campaignId = await sendingCampaign();
@@ -130,10 +129,12 @@ describe('sender (worker, MongoDB, Valkey, ElasticMQ, mock-meta)', () => {
     });
     expect(stored.providerMessageId).toMatch(/^wamid\./);
     expect(sentTo(message.deliveryId)).toBe(1);
-    expect(meta.sent.find((m) => m.callbackData === `d:${message.deliveryId}`)?.endpoint).toBe(
+    expect(meta.sent.find((m) => m.callbackData === `d:${message.deliveryId}:${campaignId}`)?.endpoint).toBe(
       'marketing_messages',
     );
-    expect(await redis.get(keys.wamid(stored.providerMessageId ?? ''))).toBe(message.deliveryId);
+    expect(await redis.get(keys.wamid(stored.providerMessageId ?? ''))).toBe(
+      `${message.deliveryId}:${campaignId}`,
+    );
     expect(await redis.hget(keys.counters(campaignId), 'accepted')).toBe('1');
   });
 

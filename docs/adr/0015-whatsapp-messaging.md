@@ -22,7 +22,7 @@ The earlier design (Helium-Production `docs/architecture/messaging-platform/`, 1
     - an adaptive rate that backs off on Meta's 130429;
     - results written in batches, one `bulkWrite` per flush.
 - **Marketing sends are at most once.** A Redis claim (`SET NX`) is taken before the call to Meta. A send whose result is unknown (timeout after the request was written) keeps its claim and is settled by watching for a status webhook within 15 minutes, re-fed once at most. Everything else is at least once, with idempotent consumers.
-- **Correlation without a database read.** Every send carries `biz_opaque_callback_data = "d:<deliveryId>"`, which Meta echoes back. The fallback is a Redis `wamid → deliveryId` map, then the `providerMessageId` index.
+- **Correlation without a database read.** Every send carries `biz_opaque_callback_data = "d:<deliveryId>"` (`d:<deliveryId>:<campaignId>` for a campaign), which Meta echoes back, so a status finds its delivery and its campaign's counters directly. The fallback is a Redis `wamid → deliveryId[:campaignId]` map, then the `providerMessageId` index.
 - **Status transitions are ranked** (`pending 0 → accepted 1 → sent 2 → delivered 3 → read 4`). `failed` is accepted while the rank is below `delivered`, which fixes today's dropped failures. A Lua script applies each transition once and updates the live counters in the same step.
 - **Webhooks are verified, split and queued; nothing else.**
     - The signature check and parser are plain TypeScript in `src/modules/messaging/whatsapp/`.

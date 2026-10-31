@@ -52,20 +52,19 @@ export class SendFlusher implements OnModuleDestroy {
     this.pending = [];
     if (batch.length === 0) return;
 
-    try {
-      await this.deliveries.applySendOutcomes(batch.map((p) => p.outcome));
-    } catch (error) {
-      for (const p of batch) p.reject(error);
-      return;
-    }
-
     const events: CounterEvent[] = batch.flatMap(({ outcome, campaignId }) =>
       campaignId === undefined ? [] : [{ campaignId, deliveryId: outcome.id, status: outcome.result }],
     );
-    // Counters are rebuilt from the database if this fails, so the messages are still done.
-    await this.counters.apply(events).catch((err: unknown) => {
-      this.logger.warn({ err, events: events.length }, 'campaign counters not updated');
-    });
+    try {
+      await this.deliveries.applySendOutcomes(batch.map((p) => p.outcome));
+      // If the counters fail, the messages are retried: their claims record the same results again without
+      // sending, and the counters (applied once per delivery and state) catch up exactly.
+      await this.counters.apply(events);
+    } catch (error) {
+      this.logger.warn({ err: error, results: batch.length }, 'send results not recorded, will retry');
+      for (const p of batch) p.reject(error);
+      return;
+    }
     for (const p of batch) p.resolve();
   }
 }

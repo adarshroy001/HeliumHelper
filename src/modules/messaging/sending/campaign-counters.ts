@@ -20,8 +20,11 @@ export interface CounterEvent {
 export class CampaignCounters {
   constructor(private readonly redis: Redis) {}
 
-  /** Applies events (sent together, without waiting between them); returns which ones counted. */
-  async apply(events: readonly CounterEvent[]): Promise<boolean[]> {
+  /**
+   * Applies events (sent together, without waiting between them). For each: whether it counted, and the rank the
+   * delivery had before (0 pending, 1 accepted, 2 sent, 3 delivered, 4 read; below 0 failed or skipped).
+   */
+  async apply(events: readonly CounterEvent[]): Promise<{ applied: boolean; previous: number }[]> {
     const results = await Promise.all(
       events.map((event) =>
         runScript(
@@ -32,7 +35,7 @@ export class CampaignCounters {
         ),
       ),
     );
-    return results.map(([applied]) => applied === 1);
+    return results.map(([applied, previous]) => ({ applied: applied === 1, previous }));
   }
 
   /** Adds to plain counters, such as `fed`, `replied` or a pricing category. */

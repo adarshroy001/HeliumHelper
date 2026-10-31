@@ -81,6 +81,7 @@ How it is built (`src/modules/messaging/sending/`):
 - A campaign delivery is sent only while its campaign's Redis state is `sending`. A missing state (not started, or Redis lost it) means not now: the delivery stays pending.
 - The delivery goes into `wa:unconfirmed` as soon as it is claimed, before the call, and leaves it on a definite result. A process that dies mid-call leaves it there for the sweeper.
 - A retryable failure is retried with backoff up to 5 attempts, then the delivery is marked failed (`gave up after 5 attempts`).
+- If the database write or the counters fail, the whole batch is retried: each message's claim records its result again without sending, and the counters (once per delivery and state) catch up exactly.
 - A campaign-level fatal error (the template doesn't exist) sets the campaign's state to `paused` and writes the reason to `wa:camp-pause:{campaignId}`; the campaign sweeper (M12) records the pause on the campaign. An account-level fatal error (token, ban) sets `wa:acct-paused:{main}` and pauses the account in `wa_accounts`; the gate then stops all receiving.
 - `WAIT 1` after a claim runs only when the Redis primary has a replica (ElastiCache), not locally.
 
@@ -132,11 +133,14 @@ Every minute the sweeper reads `wa:unconfirmed` entries older than 15 minutes:
 
 The status consumer takes up to 500 statuses or 1 s of them, whichever comes first, then for each:
 
-1. **Correlate** it to a delivery: `biz_opaque_callback_data` (`d:…`), else `wa:wamid:{wamid}`, else the `providerMessageId` index. If none match, hold 30 s, up to 5 times, then write it to `unmatched_statuses` and ack.
+1. **Correlate** it to a delivery: `biz_opaque_callback_data` (`d:<deliveryId>[:<campaignId>]`), else `wa:wamid:{wamid}` (same value without `d:`), else the `providerMessageId` index. If none match, retry the message in 30 s, up to 5 receives, then write the unmatched statuses to `unmatched_statuses` and ack (the matched ones are applied each time; applying them again changes nothing).
 2. **Campaign deliveries:** a pipelined Lua `transition(campaignId, deliveryId, status)` says whether the transition applies, and updates the counters in the same step.
 3. **Other deliveries:** a conditional database update only.
 4. **Write** the applied transitions in one `bulkWrite`, each filtered by `{ _id, statusRank: { $lt: newRank } }`. This sets the status, its time, the error and the pricing category.
-5. Ack what was written; retry the rest.
+5. Confirm each status's send: remove the delivery from `wa:unconfirmed` and set its claim to `ok:<wamid>`.
+6. Ack what was written; retry the rest. Counters are moved before the database write, so a retry after a failed write finds them already counted.
+
+Billable messages are counted per pricing category (`billable:<category>`), once per delivery: by the status that first took it to `sent` or beyond.
 
 ### Ranks and counters
 
