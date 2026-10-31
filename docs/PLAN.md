@@ -49,7 +49,7 @@ The workflow and the Definition of Done for every task are in [CONVENTIONS.md](C
 | M7 | Status consumer | M5, M6 | Done |
 | M8 | Inbound consumer and auto-reply | M7 | Done |
 | M9 | Account events and template sync | M5 | Done |
-| M10 | Campaign API and uploads | M5, M9 | Not started |
+| M10 | Campaign API and uploads | M5, M9 | Done |
 | M11 | Audience build | M10 | Not started |
 | M12 | Lifecycle, feeder and sweeper | M6, M11 | Not started |
 | M13 | Campaign reads, export and attribution | M12 | Not started |
@@ -483,8 +483,8 @@ The design is in [docs/modules/messaging/](modules/messaging/README.md), with th
     - The `campaigns` module: schema, repository, migration.
     - Create, read, list, edit, delete and duplicate drafts, with HeliumAdmin's validations (approved template, complete mapping, header media, auto-reply) plus the new options (send window, frequency cap, speed cap, attribution window).
     - The `BlobStore` interface with a local-disk store; `POST /media` (stored, uploaded to Meta); `POST /uploads/csv` (stored, columns and rows counted, up to 1M rows).
-    - Audience preview and filter options.
     - Roles and permissions in `permissions.ts`; idempotency and audit on every mutation.
+    - (The audience preview and filter options moved to M11, with the audience queries.)
 - **Done when:** HTTP tests cover each route's success and refusal cases, including permissions, idempotent retries and the audit entries.
 
 ### M11 · Audience build
@@ -492,6 +492,7 @@ The design is in [docs/modules/messaging/](modules/messaging/README.md), with th
 - **Goal:** any audience, up to millions, becomes pending deliveries without touching checkout performance.
 - **Scope:**
     - `campaign-control.fifo` and the control consumer; `campaign.command.build`.
+    - `POST /audiences/preview` (count, breakdown, a rendered sample) and `GET /audiences/options`.
     - Sources: users, orders (all HeliumAdmin filters), abandoned carts, waitlist, individual users, CSV, and an earlier campaign's results.
     - Normalize, de-duplicate, exclusions, suppressions, frequency cap, parameter resolution, `insertMany` in batches with `seq` blocks, heartbeat, resumable.
 - **Done when:** integration tests show each source and filter gives the expected recipients, a crashed build resumes with no duplicates, and skipped counts are exact.

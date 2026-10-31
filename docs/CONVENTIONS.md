@@ -252,6 +252,12 @@ Every error response has one shape ([ADR-0008](adr/0008-error-contract.md)):
     - A scheduled message's envelope gets EventBridge's execution ID as `id` and `correlationId`, and the scheduled time as `ts`.
 - **Locally:** ElasticMQ in docker-compose; queues are declared in `docker/elasticmq.conf`, each with its `-dlq`. Tests create their own queues with `createTestQueue()` (`test/helpers/sqs.ts`).
 
+## Stored files
+
+- **Files** (CSV audiences, header media, exports) go through the global `BlobStore` (`src/infrastructure/blob/`): `put(key, stream | buffer)`, `open(key)`, `delete(key)`. Keys are paths such as `uploads/<name>.csv`.
+- Locally the store is a folder (`BLOB_DIR`, default `.data/blobs`, git-ignored); an S3 store replaces it when deployed.
+- **Uploads** come in as multipart (`FileInterceptor('file', { limits })`, in memory, 100 MB at most), are checked, then stored. JSON bodies stay limited to 1 MB.
+
 ## Audit log
 
 - **Every state-changing admin action is recorded** in `audit_log` by `AuditService.record({ actor, action, entity, before?, after? }, session)`, from the `audit` module. Services call it explicitly.

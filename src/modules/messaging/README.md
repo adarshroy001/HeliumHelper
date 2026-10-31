@@ -15,6 +15,7 @@ WhatsApp messaging ([ADR-0015](../../../docs/adr/0015-whatsapp-messaging.md)): a
 | `account/` | The account consumer: template, quality, limit and account events |
 | `templates/` | Template sync from Meta |
 | `jobs/` | Scheduled housekeeping on `messaging-jobs` |
+| `api/` | Internal routes: templates, template sync, header media |
 
 ## Owns
 
@@ -38,7 +39,8 @@ WhatsApp messaging ([ADR-0015](../../../docs/adr/0015-whatsapp-messaging.md)): a
 | Schedule | `messaging-templates-sync` (15 min), `messaging-suppressions-reload` (10 min) | Message `messaging.job.run` |
 | Redis | `wa:tpl-camps:{name:language}`, `wa:mkt-paused:{account}`, `wa:limit:{portfolio}` | Template users, marketing pause, daily limit |
 | Exports | `CampaignCounters`, `CampaignSignals`, `TemplatesService`, `AccountsService`, `GraphClient` | For the campaigns module |
-| Error | `TEMPLATE_SYNC_FAILED` (502, retryable) | |
+| Error | `TEMPLATE_SYNC_FAILED` (502, retryable), `TEMPLATE_NOT_FOUND` (404), `MEDIA_NOT_FOUND` (404), `MEDIA_UNSUPPORTED` (422), `MEDIA_UPLOAD_FAILED` (502) | |
+| Routes | `GET /templates`, `POST /templates/sync`, `POST /media` | Under `/internal/v1`; permissions `campaigns:read`, `messaging:ops`, `campaigns:write` |
 
 More collections, queues, routes and error codes are added by M4–M15 and listed here as they land.
 

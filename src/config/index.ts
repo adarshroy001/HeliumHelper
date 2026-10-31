@@ -1,4 +1,5 @@
 import { appEnvSchema } from './app.config.js';
+import { blobEnvSchema } from './blob.config.js';
 import { authEnvSchema } from './auth.config.js';
 import { databaseEnvSchema } from './database.config.js';
 import { queueEnvSchema } from './queue.config.js';
@@ -8,6 +9,7 @@ import { workerEnvSchema } from './worker.config.js';
 
 export { appConfig, type AppConfig } from './app.config.js';
 export { authConfig, type AuthConfig } from './auth.config.js';
+export { blobConfig, type BlobConfig } from './blob.config.js';
 export { databaseConfig, type DatabaseConfig } from './database.config.js';
 export { queueConfig, type QueueConfig } from './queue.config.js';
 export { redisConfig, type RedisConfig } from './redis.config.js';
@@ -25,4 +27,5 @@ export const CONFIG_SCHEMAS = {
   queue: queueEnvSchema,
   worker: workerEnvSchema,
   whatsapp: whatsappEnvSchema,
+  blob: blobEnvSchema,
 } as const;

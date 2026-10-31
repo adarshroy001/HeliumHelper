@@ -121,28 +121,24 @@ export class StatusService implements OnModuleDestroy {
   /** Counters first: if the database write then fails, the retry finds the counters already moved. */
   private async countCampaigns(items: readonly Matched[]): Promise<void> {
     const campaignItems = items.filter((item) => item.ref.campaignId !== undefined);
-    const applied = await this.counters.apply(
+    await this.counters.apply(
       campaignItems.map(({ status, ref }) => ({
         campaignId: ref.campaignId ?? '',
         deliveryId: ref.deliveryId,
         status: status.status,
       })),
     );
-    // Billable messages per pricing category, counted once per delivery: by the status that first took it to
-    // `sent` or beyond.
-    const billable = campaignItems.filter(({ status }, i) => {
-      const result = applied[i];
-      return (
-        result?.applied === true &&
-        result.previous < 2 &&
-        status.status !== 'failed' &&
-        status.pricing?.billable === true
-      );
-    });
+    // Billable messages per pricing category, once per delivery, from whichever status brings the pricing.
     await Promise.all(
-      billable.map(({ status, ref }) =>
-        this.counters.increment(ref.campaignId ?? '', `billable:${status.pricing?.category ?? 'unknown'}`),
-      ),
+      campaignItems
+        .filter(({ status }) => status.pricing?.billable === true)
+        .map(({ status, ref }) =>
+          this.counters.countBillable(
+            ref.campaignId ?? '',
+            ref.deliveryId,
+            status.pricing?.category ?? 'unknown',
+          ),
+        ),
     );
   }
 

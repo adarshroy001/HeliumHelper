@@ -1,5 +1,5 @@
 import { HttpStatus } from '@nestjs/common';
-import { AppError, ForbiddenError, UnauthorizedError } from '../../common/errors/index.js';
+import { AppError, ForbiddenError, NotFoundError, UnauthorizedError } from '../../common/errors/index.js';
 
 /** 401: a webhook's `X-Hub-Signature-256` doesn't match the body. Nothing was queued. */
 export class WebhookSignatureInvalidError extends UnauthorizedError {
@@ -33,6 +33,55 @@ export class TemplateSyncFailedError extends AppError {
 
   constructor(detail: string) {
     super('TEMPLATE_SYNC_FAILED', 'Templates could not be synced from WhatsApp. Try again later.', {
+      details: { detail },
+      retryable: true,
+    });
+  }
+}
+
+/** 404: no such template in the synced mirror. */
+export class TemplateNotFoundError extends NotFoundError {
+  constructor(templateId: string) {
+    super('TEMPLATE_NOT_FOUND', 'Template not found. Sync templates and try again.', {
+      details: { templateId },
+    });
+  }
+}
+
+/** 404: no such media file. */
+export class MediaNotFoundError extends NotFoundError {
+  constructor(mediaId: string) {
+    super('MEDIA_NOT_FOUND', 'Media not found.', { details: { mediaId } });
+  }
+}
+
+/** 422: a file type or size WhatsApp doesn't accept for template headers. */
+export class MediaUnsupportedError extends AppError {
+  readonly status = HttpStatus.UNPROCESSABLE_ENTITY;
+
+  constructor(mime: string, accepted: readonly string[], maxBytes?: number) {
+    super(
+      'MEDIA_UNSUPPORTED',
+      maxBytes === undefined
+        ? 'This file type is not supported for WhatsApp headers.'
+        : 'This file is too large for WhatsApp.',
+      {
+        details: {
+          mime,
+          ...(accepted.length > 0 ? { accepted } : {}),
+          ...(maxBytes === undefined ? {} : { maxBytes }),
+        },
+      },
+    );
+  }
+}
+
+/** 502: Meta didn't accept the media upload; it can be tried again. */
+export class MediaUploadFailedError extends AppError {
+  readonly status = HttpStatus.BAD_GATEWAY;
+
+  constructor(detail: string) {
+    super('MEDIA_UPLOAD_FAILED', 'The media file could not be uploaded to WhatsApp. Try again later.', {
       details: { detail },
       retryable: true,
     });

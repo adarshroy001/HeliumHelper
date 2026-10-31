@@ -18,6 +18,8 @@ export const keys = {
   campaignPauseRequest: (campaignId: string) => redisKey('wa', 'camp-pause', campaignId),
   ranks: (campaignId: string) => redisKey('wa', 'st', campaignId),
   counters: (campaignId: string) => redisKey('wa', 'cnt', campaignId),
+  /** Deliveries already counted as billable (deliveryId → pricing category). */
+  billed: (campaignId: string) => redisKey('wa', 'billed', campaignId),
   claim: (deliveryId: string) => redisKey('wa', 'claim', deliveryId),
   wamid: (wamid: string) => redisKey('wa', 'wamid', wamid),
   unconfirmed: () => redisKey('wa', 'unconfirmed', 'global'),

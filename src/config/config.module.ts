@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule as NestConfigModule } from '@nestjs/config';
 import { appConfig } from './app.config.js';
 import { authConfig } from './auth.config.js';
+import { blobConfig } from './blob.config.js';
 import { databaseConfig } from './database.config.js';
 import { queueConfig } from './queue.config.js';
 import { redisConfig } from './redis.config.js';
@@ -17,6 +18,7 @@ export const CONFIG_AREAS = [
   queueConfig,
   workerConfig,
   whatsappConfig,
+  blobConfig,
 ];
 
 /**

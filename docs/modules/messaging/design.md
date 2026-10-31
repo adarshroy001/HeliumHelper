@@ -140,7 +140,7 @@ The status consumer takes up to 500 statuses or 1 s of them, whichever comes fir
 5. Confirm each status's send: remove the delivery from `wa:unconfirmed` and set its claim to `ok:<wamid>`.
 6. Ack what was written; retry the rest. Counters are moved before the database write, so a retry after a failed write finds them already counted.
 
-Billable messages are counted per pricing category (`billable:<category>`), once per delivery: by the status that first took it to `sent` or beyond.
+Billable messages are counted per pricing category (`billable:<category>`), once per delivery, from whichever of its statuses brings the pricing (`countBillable`: `HSETNX wa:billed:{campaignId}`), so the order statuses arrive in doesn't matter.
 
 ### Ranks and counters
 

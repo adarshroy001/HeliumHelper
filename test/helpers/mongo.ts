@@ -26,3 +26,15 @@ export async function connectTestDatabase(): Promise<Connection & { dropAndClose
     },
   });
 }
+
+/**
+ * Points the app at databases of its own (`<name>_main`, `<name>_messaging`), so test files running in parallel
+ * never see each other's data. Call it before creating the app; restore `process.env` afterwards.
+ */
+export function isolatedDatabases(name: string): void {
+  const base = process.env['MONGO_TEST_URI'];
+  if (base === undefined)
+    throw new Error('MONGO_TEST_URI is not set: run this through the int or e2e project');
+  process.env['MONGO_MAIN_URI'] = mongoUri(base, `${name}_main`);
+  process.env['MONGO_MESSAGING_URI'] = mongoUri(base, `${name}_messaging`);
+}

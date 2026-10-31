@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Redis } from 'ioredis';
 import { runScript } from '../../../infrastructure/redis/index.js';
 import { keys } from '../messaging.keys.js';
-import { transition } from './counters.scripts.js';
+import { countBillable, transition } from './counters.scripts.js';
 
 export type CountedStatus = 'accepted' | 'sent' | 'delivered' | 'read' | 'failed' | 'skipped';
 
@@ -38,7 +38,17 @@ export class CampaignCounters {
     return results.map(([applied, previous]) => ({ applied: applied === 1, previous }));
   }
 
-  /** Adds to plain counters, such as `fed`, `replied` or a pricing category. */
+  /** Counts a delivery as billable in its pricing category, once, whatever order its statuses arrive in. */
+  async countBillable(campaignId: string, deliveryId: string, category: string): Promise<void> {
+    await runScript(
+      this.redis,
+      countBillable,
+      [keys.billed(campaignId), keys.counters(campaignId)],
+      [deliveryId, category],
+    );
+  }
+
+  /** Adds to plain counters, such as `fed`, `replied` or `optedOut`. */
   async increment(campaignId: string, field: string, by = 1): Promise<void> {
     await this.redis.hincrby(keys.counters(campaignId), field, by);
   }

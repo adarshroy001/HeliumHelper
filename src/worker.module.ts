@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { DiscoveryModule } from '@nestjs/core';
 import { ConfigModule } from './config/index.js';
+import { BlobModule } from './infrastructure/blob/index.js';
 import { DatabaseModule } from './infrastructure/database/index.js';
 import { HealthModule } from './infrastructure/health/health.module.js';
 import { HttpErrorsModule } from './infrastructure/http/http-errors.module.js';
@@ -24,6 +25,7 @@ import { SCHEDULES } from './schedules.js';
     LoggerModule,
     HttpErrorsModule,
     DatabaseModule,
+    BlobModule,
     RedisModule,
     QueueModule,
     DiscoveryModule,

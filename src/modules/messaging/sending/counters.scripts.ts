@@ -35,3 +35,18 @@ for r = cur + 1, new do redis.call('HINCRBY', KEYS[2], NAME[r], 1) end
 return {1, cur}
 `,
 });
+
+/**
+ * Counts a billable message once per delivery, whichever of its statuses brings the pricing and in whatever
+ * order they arrive. KEYS: billed (deliveryId → category), counters. ARGV: deliveryId, category.
+ * Returns 1 if counted now.
+ */
+export const countBillable = luaScript<number>({
+  name: 'countBillable',
+  keys: 2,
+  lua: `
+if redis.call('HSETNX', KEYS[1], ARGV[1], ARGV[2]) == 0 then return 0 end
+redis.call('HINCRBY', KEYS[2], 'billable:' .. ARGV[2], 1)
+return 1
+`,
+});

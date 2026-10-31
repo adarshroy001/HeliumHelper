@@ -221,6 +221,10 @@ export class TemplatesRepository {
     await this.model.updateOne({ _id: id }, { $set: { ...fields, syncedAt: new Date() } }).exec();
   }
 
+  async findById(id: string): Promise<Template | null> {
+    return this.model.findById(id).lean<Template>().exec();
+  }
+
   async find(accountId: string, name: string, language: string): Promise<Template | null> {
     return this.model.findOne({ accountId, name, language }).lean<Template>().exec();
   }

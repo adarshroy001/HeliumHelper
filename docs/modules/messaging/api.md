@@ -50,8 +50,8 @@ HeliumAdmin has no admin roles yet, so it sends `admin` for every admin user. Th
 | --- | --- | --- |
 | `GET /templates?status=` | `campaigns:read` | Synced templates |
 | `POST /templates/sync` | `messaging:ops` | Sync from Meta now |
-| `POST /media` | `campaigns:write` | Upload a header media file (multipart): stored, then uploaded to Meta |
-| `POST /uploads/csv` | `campaigns:write` | Upload an audience or exclusion CSV (multipart, up to 1M rows): stored, columns and row count returned |
+| `POST /media` | `campaigns:write` | Upload a header media file (multipart, `file`): stored and checked (type, size); it is uploaded to Meta when a campaign is tested or started |
+| `POST /uploads/csv` | `campaigns:write` | Upload an audience or exclusion CSV (multipart, `file`, up to 1M rows and 100 MB): stored, columns, phone column and row count returned |
 
 ## Inbox and contacts
 
