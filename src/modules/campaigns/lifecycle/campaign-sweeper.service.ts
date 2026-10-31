@@ -14,10 +14,9 @@ const CLOSE_AFTER_MS = 72 * 60 * 60 * 1000;
 const STUCK_BUILD_MS = 5 * 60 * 1000;
 const SWEEPER: Actor = { service: 'helium-backend:sweeper' };
 
-/** Sends in flight: fed to the queue, not yet accepted, failed or skipped. */
+/** Sends in flight, roughly: fed to the queue and without a result yet. For pacing; completion uses `resolved`. */
 export function inFlight(counters: Readonly<Record<string, number>>): number {
-  const n = (field: string) => counters[field] ?? 0;
-  return n('fed') - (n('accepted') + n('failed') + n('skipped'));
+  return (counters['fed'] ?? 0) - (counters['resolved'] ?? 0);
 }
 
 /**
@@ -86,12 +85,13 @@ export class CampaignSweeper {
     await this.redis.del(messagingKeys.campaignPauseRequest(id));
   }
 
-  /** Done when everything was fed and every send has a result. */
+  /** Done when everything was fed and every delivery has a result. */
   private async complete(campaign: CampaignDocument): Promise<void> {
     if (campaign.status !== 'sending') return;
     const id = String(campaign._id);
     const exhausted = await this.redis.hget(messagingKeys.feedCursor(id), 'exhausted');
-    if (exhausted !== '1' || inFlight(await this.counters.read(id)) > 0) return;
+    const resolved = (await this.counters.read(id))['resolved'] ?? 0;
+    if (exhausted !== '1' || resolved < (campaign.totals?.total ?? 0)) return;
     await this.campaigns.transition(
       id,
       { from: ['sending'] },
@@ -101,12 +101,14 @@ export class CampaignSweeper {
     this.logger.info({ campaignId: id }, 'campaign complete');
   }
 
-  /** Once the sends already queued have settled, the deliveries never fed are skipped. */
+  /**
+   * Skips a stopped campaign's never-sent deliveries, each through the counters script, so a delivery the sender is
+   * skipping at the same moment is counted once. Repeated each sweep until none is left pending.
+   */
   private async finalizeStopped(campaign: CampaignDocument): Promise<void> {
     const id = String(campaign._id);
-    if (inFlight(await this.counters.read(id)) > 0) return;
-    const skipped = await this.ledger.skipPending(id, 'stopped');
-    if (skipped > 0) await this.counters.increment(id, 'skipped', skipped);
+    await this.ledger.skipRemaining(id, 'stopped');
+    if ((await this.ledger.countPending(id)) > 0) return;
     await this.redis.srem(messagingKeys.activeCampaigns(), id);
     await this.campaigns.transition(id, { from: ['stopped'] }, { finalizedAt: new Date() });
   }

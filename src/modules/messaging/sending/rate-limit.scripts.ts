@@ -36,17 +36,24 @@ return {0, math.max(5, math.ceil(missing / rate * 1000))}
 
 /**
  * Meta said the number is over its rate (130429), or is being upgraded (131057): slow down and pause.
- * KEYS: rate, pause. ARGV: factor, floor rate, pause (ms), now (ms), max rate. Returns the new rate.
+ * The rate is cut at most once per cut window: the other requests already in flight when Meta started refusing get
+ * the same error, and cutting for each of them would drop the rate to the floor at once.
+ * KEYS: rate, pause. ARGV: factor, floor rate, pause (ms), now (ms), max rate, cut window (ms, default 0).
+ * Returns the rate.
  */
 export const onRateLimited = luaScript<number>({
   name: 'onRateLimited',
   keys: 2,
   lua: `
 local factor, floor, pauseMs = tonumber(ARGV[1]), tonumber(ARGV[2]), tonumber(ARGV[3])
-local now, maxRate = tonumber(ARGV[4]), tonumber(ARGV[5])
-local rate = tonumber(redis.call('HGET', KEYS[1], 'rate') or maxRate)
-rate = math.max(floor, math.min(maxRate, rate) * factor)
-redis.call('HSET', KEYS[1], 'rate', tostring(rate), 'last429', tostring(now))
+local now, maxRate, window = tonumber(ARGV[4]), tonumber(ARGV[5]), tonumber(ARGV[6] or '0')
+local state = redis.call('HMGET', KEYS[1], 'rate', 'lastCut')
+local rate = math.min(maxRate, tonumber(state[1]) or maxRate)
+if now - (tonumber(state[2]) or 0) >= window then
+  rate = math.max(floor, rate * factor)
+  redis.call('HSET', KEYS[1], 'rate', tostring(rate), 'lastCut', tostring(now))
+end
+redis.call('HSET', KEYS[1], 'last429', tostring(now))
 if pauseMs > 0 then redis.call('SET', KEYS[2], '1', 'PX', pauseMs) end
 return math.floor(rate)
 `,

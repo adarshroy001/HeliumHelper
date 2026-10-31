@@ -112,6 +112,8 @@ describe('inbound messages (API webhook, worker, mock-meta)', () => {
     // A real customer's taps are seconds apart: the second is sent once the first is stored.
     const first = await reply({ from: '919850000011', button: { text: 'Bedroom' }, contextWamid: wamid });
     const stored = await eventually(() => inboundDoc(first));
+    // ...and its vote counted.
+    await eventually(async () => (await redis.hget(keys.buttons(campaignId), 'Bedroom')) === '1');
     await reply({ from: '919850000011', button: { text: 'Office' }, contextWamid: wamid });
     expect(stored).toMatchObject({ from: '919850000011', type: 'button', deliveryId, campaignId });
     const delivery = await eventually(async () => {

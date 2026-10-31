@@ -4,6 +4,7 @@ import { MAIN_ACCOUNT_ID } from '../accounts.service.js';
 import { Redis } from 'ioredis';
 import { DeliveriesRepository } from '../data/deliveries.repository.js';
 import { keys } from '../messaging.keys.js';
+import { CampaignCounters } from '../sending/campaign-counters.js';
 import { type DeliveryPayload, STATUS_RANK } from '../data/delivery.schema.js';
 import type { TemplatePayload } from '../whatsapp/template.js';
 
@@ -27,6 +28,7 @@ export class DeliveryLedger {
   constructor(
     private readonly deliveries: DeliveriesRepository,
     private readonly redis: Redis,
+    private readonly counters: CampaignCounters,
   ) {}
 
   /**
@@ -93,8 +95,31 @@ export class DeliveryLedger {
     return docs.map((d) => String(d._id));
   }
 
-  skipPending(campaignId: string, reason: string): Promise<number> {
-    return this.deliveries.skipPending(campaignId, reason);
+  /**
+   * Skips a campaign's pending deliveries, each through the counters script first: only those it counts (still
+   * pending in Redis) are marked skipped, so the sender skipping one at the same moment can't count it twice.
+   */
+  async skipRemaining(campaignId: string, reason: string): Promise<number> {
+    let skipped = 0;
+    for (;;) {
+      const pending = await this.deliveries.pendingAfter(campaignId, -1, 1000);
+      if (pending.length === 0) return skipped;
+      const ids = pending.map((p) => p.id);
+      const results = await this.counters.apply(
+        ids.map((deliveryId) => ({ campaignId, deliveryId, status: 'skipped' as const })),
+      );
+      const counted = ids.filter((_, i) => results[i]?.applied === true);
+      const at = new Date();
+      // Counted by the sender meanwhile: its own write marks them.
+      await this.deliveries.applySendOutcomes(
+        ids.map((id) => ({ id, result: 'skipped' as const, reason, at })),
+      );
+      skipped += counted.length;
+    }
+  }
+
+  countPending(campaignId: string): Promise<number> {
+    return this.deliveries.countPending(campaignId);
   }
 
   pendingAfter(campaignId: string, cursor: number, limit: number) {
@@ -148,8 +173,12 @@ export class DeliveryLedger {
     const billed: [string, string][] = [];
     for await (const d of this.deliveries.campaignCursor(campaignId)) {
       const id = String(d._id);
-      const rank = RANK[d.status] ?? 0;
-      if (d.status !== 'pending') counts['fed'] = (counts['fed'] ?? 0) + 1;
+      // A failure Meta had accepted (it has a message ID) is -3, with `accepted` counted (counters.scripts.ts).
+      const rank = d.status === 'failed' && d.providerMessageId !== undefined ? -3 : (RANK[d.status] ?? 0);
+      if (d.status !== 'pending') {
+        counts['fed'] = (counts['fed'] ?? 0) + 1;
+        counts['resolved'] = (counts['resolved'] ?? 0) + 1;
+      }
       if (rank >= 1 || (d.status === 'failed' && d.providerMessageId !== undefined))
         counts['accepted'] = (counts['accepted'] ?? 0) + 1;
       if (rank >= 2) counts['sent'] = (counts['sent'] ?? 0) + 1;

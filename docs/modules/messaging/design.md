@@ -90,7 +90,7 @@ How it is built (`src/modules/messaging/sending/`):
 | Limit | Scope | How |
 | --- | --- | --- |
 | Throughput (80 msg/s default, up to 1,000; inbound and outbound together) | Phone number | Token bucket `wa:rl:{pn}`, capacity = 1 s of rate. p2 takes tokens only while 20% stays free |
-| Adaptive rate | Phone number | `wa:rate:{pn}` starts at the account's `maxMps`. 130429: rate × 0.7 (floor 10) and a 2 s pause. After 30 s without one: rate × 1.05, up to `maxMps` |
+| Adaptive rate | Phone number | `wa:rate:{pn}` starts at the account's `maxMps`. 130429: rate × 0.7 (floor 10), at most once per 2 s, and a 2 s pause; the other 429s of the same burst (requests already in flight) only extend the pause. After 10 s without one: rate × 1.1, up to `maxMps`, so one cut is recovered in about 40 s |
 | Number upgrading (131057) | Phone number | Pause 60 s |
 | Speed cap | Campaign | The feeder feeds no faster than the campaign's `maxMps` |
 | Daily messaging limit (unique users in 24 h) | Business portfolio | Hourly HyperLogLog `wa:uniq:{portfolioId}:{yyyyMMddHH}`; the feeder stops feeding marketing at 95% of the limit and shows `waitingForLimit` |
@@ -150,7 +150,7 @@ failed:  allowed while the rank is below 3 (also after accepted or sent)
 skipped: only from pending (stop, suppression, invalid, duplicate, frequency cap)
 ```
 
-Counters count deliveries that ever reached a state: `read` also counts `delivered` when Meta skipped it. `failed` and `skipped` are current totals. Other counters: `total`, `fed`, `accepted`, `replied`, `optedOut`, and cost per pricing category.
+Counters count deliveries that ever reached a state: `read` also counts `delivered` when Meta skipped it. `failed` and `skipped` are current totals. `resolved` counts each delivery once, when it first leaves pending (accepted, failed or skipped): a campaign is complete when `resolved` reaches `total`. Other counters: `total`, `fed`, `accepted`, `replied`, `optedOut`, and cost per pricing category.
 
 ## Inbound messages
 
@@ -197,7 +197,7 @@ Housekeeping runs on the `messaging-jobs` queue (one message type, `messaging.jo
 | `ready`, `scheduled` | start, or the schedule is due | `sending` (after pre-flight checks) |
 | `sending` | pause, or an automatic pause | `paused` (with `pauseReason`) |
 | `paused` | resume | `sending` (after pre-flight checks) |
-| `sending` | all fed and resolved, nothing unconfirmed | `send_complete` |
+| `sending` | all fed (`exhausted`) and `resolved` ≥ `total` | `send_complete` |
 | any non-terminal | stop | `stopped` |
 | `send_complete`, `stopped` | 72 h later | `closed` (terminal) |
 
@@ -231,7 +231,7 @@ A worker loop (`@WorkerLoop('campaign-feeder')`, run where `WORKER_QUEUES` names
     - it's outside its send window (it continues when the window opens);
     - the portfolio limit is at 95% (`waitingForLimit`).
 - **Target backlog** = the number's current rate × 120 s ÷ active sending campaigns; and never more than the campaign's `maxMps` per pass (one second), which is its speed cap.
-- **In flight** = `fed − (accepted + failed + skipped)`, from the counters.
+- **In flight** = `fed − resolved`, from the counters. It is for pacing only: a message acked while paused is taken off `fed`, so it can briefly read low.
 - **If in flight is below target:** read the next deliveries `{ campaignId, status: 'pending', seq: { $gt: cursor } }` sorted by `seq`, publish them to `wa-send-p2` (`groupId = campaignId`), and add to `fed`.
 - **Cursor:** the hash `wa:feed:{campaignId}` (`cursor`, `exhausted`). `fed` is counted before publishing and taken back if publishing fails. An empty read sets `exhausted`. Why a campaign is held back is kept in `wa:camp-wait:{campaignId}` (2 minutes) for its stats.
 - **After a pause,** the cursor resets to the lowest pending `seq`; already-sent deliveries are skipped by their claims.
@@ -241,7 +241,7 @@ A worker loop (`@WorkerLoop('campaign-feeder')`, run where `WORKER_QUEUES` names
 | Action | Takes effect | Messages already queued | Pending deliveries |
 | --- | --- | --- | --- |
 | Pause | Within 2 s (1 s state cache; the sender checks again after waiting for a token) | Acked without sending, and taken off `fed` | Stay pending; resume feeds them again from the first pending |
-| Stop | Within 2 s | Recorded as skipped (counted once, by the sender) | Once nothing is in flight, the sweeper skips the rest with one `updateMany` and adds them to `skipped` |
+| Stop | Within 2 s | Recorded as skipped (counted once, by the sender) | The sweeper skips the rest, 1,000 at a time, each through the `transition` script first, so one the sender skips at the same moment is counted once; `finalizedAt` is set when none is left pending |
 | Kill switch (`cfg:wa-pause:{global}`) | Within 1 s | Not received (gate closed) | Untouched |
 
 Pause and stop are made by the API itself: the Redis state is set first (so a failure leaves the campaign paused or stopped, the safe side), then the status. Start and resume check the campaign first (pre-flight), set `sending`, and queue a `start` command; the control consumer then uploads the header media to Meta (fresh), stores the send settings (endpoint, phone number, header component) and publishes the Redis state the sender, feeder and inbound consumer read (`wa:camp`, `wa:active`, `wa:tpl-camps`, `wa:autoreply`, the feed cursor). If the media upload fails, the campaign is paused with the reason.
@@ -250,7 +250,7 @@ Pause and stop are made by the API itself: the Redis state is set first (so a fa
 
 - Start scheduled campaigns that are due.
 - Settle unknown results (above).
-- Mark campaigns `send_complete` when fed, exhausted and resolved, with nothing unconfirmed.
+- Mark campaigns `send_complete` when the feed is exhausted and `resolved` ≥ `total`. An unknown result (a send that timed out) holds completion until the settle job resolves it, so completion lags the last send by up to about a minute.
 - Close campaigns 72 h after they finished, saving a counters snapshot and removing their Redis keys.
 - Re-queue builds with no heartbeat for 5 minutes.
 

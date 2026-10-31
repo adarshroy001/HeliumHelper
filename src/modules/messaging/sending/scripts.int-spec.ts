@@ -96,6 +96,24 @@ describe('messaging Lua scripts (real Valkey)', () => {
       expect(await runScript(redis, maybeRaiseRate, [keys.rate(pn)], [1.05, 80, 30_000, 61_200])).toBe(11);
     });
 
+    it('cuts once for a burst of rate limits inside the cut window', async () => {
+      const { pn } = number();
+      const limit = (now: number) =>
+        runScript(
+          redis,
+          onRateLimited,
+          [keys.rate(pn), keys.numberPause(pn)],
+          [0.7, 10, 2000, now, 80, 2000],
+        );
+
+      expect(await limit(10_000)).toBe(56);
+      for (let i = 1; i <= 50; i += 1) expect(await limit(10_000 + i * 10)).toBe(56);
+      expect(await limit(12_000)).toBe(39);
+      // Each limit still pushes the raise back.
+      expect(await runScript(redis, maybeRaiseRate, [keys.rate(pn)], [1.1, 80, 10_000, 21_000])).toBe(39);
+      expect(await runScript(redis, maybeRaiseRate, [keys.rate(pn)], [1.1, 80, 10_000, 22_100])).toBe(43);
+    });
+
     it('uses the lowered rate for the bucket', async () => {
       const { pn, bucket } = number();
       await runScript(
@@ -129,7 +147,13 @@ describe('messaging Lua scripts (real Valkey)', () => {
       await step('d1', 'delivered');
       await step('d2', 'read');
 
-      expect(await counters()).toEqual({ accepted: '2', sent: '2', delivered: '2', read: '1' });
+      expect(await counters()).toEqual({
+        accepted: '2',
+        sent: '2',
+        delivered: '2',
+        read: '1',
+        resolved: '2',
+      });
     });
 
     it('counts failed after sent, but not after delivered, and nothing after failed', async () => {
@@ -137,11 +161,22 @@ describe('messaging Lua scripts (real Valkey)', () => {
 
       expect(await step('d1', 'sent')).toEqual([1, 0]);
       expect(await step('d1', 'failed')).toEqual([1, 2]);
-      expect(await step('d1', 'delivered')).toEqual([0, -1]);
+      expect(await step('d1', 'delivered')).toEqual([0, -3]);
       await step('d2', 'delivered');
       expect(await step('d2', 'failed')).toEqual([0, 3]);
 
       expect(await counters()).toMatchObject({ failed: '1', delivered: '1' });
+    });
+
+    it('counts accepted once for a delivery whose failure arrived before its acceptance', async () => {
+      const { step, counters } = campaign();
+
+      expect(await step('d1', 'failed')).toEqual([1, 0]);
+      expect(await step('d1', 'accepted')).toEqual([0, -1]);
+      expect(await step('d1', 'accepted')).toEqual([0, -3]);
+      expect(await step('d1', 'sent')).toEqual([0, -3]);
+
+      expect(await counters()).toEqual({ failed: '1', accepted: '1', resolved: '1' });
     });
 
     it('skips only pending deliveries', async () => {
@@ -152,7 +187,7 @@ describe('messaging Lua scripts (real Valkey)', () => {
       await step('d2', 'accepted');
       await step('d2', 'skipped');
 
-      expect(await counters()).toEqual({ skipped: '1', accepted: '1' });
+      expect(await counters()).toEqual({ skipped: '1', accepted: '1', resolved: '2' });
     });
   });
 });

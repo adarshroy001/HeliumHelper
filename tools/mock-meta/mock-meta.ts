@@ -4,8 +4,9 @@
 //
 // Errors by the recipient's last four digits:
 //   0001 accepted, then `failed` 131026 after `sent`      0005 131016 on the first try, accepted on a retry
-//   0002 accepted, but the response hangs (ambiguous)    0006 131056 (pair rate limit)
+//   0002 accepted, but the response hangs (ambiguous)
 //   0003 accepted, then `failed` 131049 (no `sent`)       0007 132001 (template doesn't exist)
+//   0006 131056 (pair rate limit) on the first try, accepted on a retry
 //   0004 190 (token expired)
 //
 // Test controls: POST /_sim/inbound, POST /_sim/account, GET|DELETE /_sim/sent, GET /_sim/stats, PATCH /_sim/config.
@@ -173,10 +174,15 @@ export async function startMockMeta(options: MockMetaOptions): Promise<MockMeta>
     const suffix = to.slice(-4);
     const syncErrors: Record<string, [number, string]> = {
       '0004': [190, 'Error validating access token: Session has expired'],
-      '0006': [131056, 'Pair rate limit hit'],
       '0007': [132001, 'Template name does not exist in the translation'],
     };
     const syncError = syncErrors[suffix];
+    if (suffix === '0006' && !retriedOnce.has(to)) {
+      retriedOnce.add(to);
+      stats.errors += 1;
+      reply(res, 400, error(131056, 'Pair rate limit hit'));
+      return;
+    }
     if (suffix === '0005' && !retriedOnce.has(to)) {
       retriedOnce.add(to);
       stats.errors += 1;

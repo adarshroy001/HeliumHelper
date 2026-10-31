@@ -50,12 +50,14 @@ export class RateLimiter {
 
   /** Meta said 130429 (over the rate) or 131057 (number upgrading): slow down and pause the number. */
   async rateLimited(phoneNumberId: string, kind: 'throughput' | 'upgrading', maxMps: number): Promise<void> {
-    const [factor, floor, pauseMs] = kind === 'throughput' ? [0.7, 10, 2_000] : [1, 1, 60_000];
+    // One cut per pause window: the 429s for requests already in flight belong to the same overload.
+    const [factor, floor, pauseMs, cutWindowMs] =
+      kind === 'throughput' ? [0.7, 10, 2_000, 2_000] : [1, 1, 60_000, 0];
     await runScript(
       this.redis,
       onRateLimited,
       [keys.rate(phoneNumberId), keys.numberPause(phoneNumberId)],
-      [factor, floor, pauseMs, Date.now(), maxMps],
+      [factor, floor, pauseMs, Date.now(), maxMps, cutWindowMs],
     );
   }
 
@@ -89,7 +91,8 @@ export class RateLimiter {
     const now = Date.now();
     if (now - state.lastRaise < RAISE_EVERY_MS) return;
     state.lastRaise = now;
-    runScript(this.redis, maybeRaiseRate, [keys.rate(phoneNumberId)], [1.05, maxMps, 30_000, now]).catch(
+    // +10% after each 10 s without a rate limit: back from one cut (×0.7) in about 40 s.
+    runScript(this.redis, maybeRaiseRate, [keys.rate(phoneNumberId)], [1.1, maxMps, 10_000, now]).catch(
       () => undefined,
     );
   }

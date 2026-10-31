@@ -107,3 +107,21 @@ MongoDB main DB (read-only): users, orders, carts, waitlist for audiences and at
 6. **Send:** the sender takes a token, claims the delivery, calls Meta and records the result in batches.
 7. **Track:** status webhooks move each delivery up its ranks and update the live counters. Replies update the inbox, the button tallies and opt-outs, and trigger auto-replies.
 8. **Finish:** the sweeper marks the campaign `send_complete` when everything is resolved, and `closed` 72 hours later, when its Redis state is removed.
+
+## Local load test (M16)
+
+Run on a Windows laptop against mock-meta, with `WA_MAX_MPS=500 MOCK_META_MPS=500 PORT=3100 pnpm dev` (one API, one worker, local MongoDB, Valkey and ElasticMQ in Docker). Scripts: `tools/load/campaign-load.ts [recipients]` and `tools/load/webhook-burst.ts [requests] [concurrency]`.
+
+| Run | Result |
+| --- | --- |
+| 100k-recipient CSV campaign, with a 300-recipient campaign at the same time, a pause and resume mid-run, and 200 button replies | Built in 15.3 s; all 100,000 resolved in 319 s (313 msg/s sustained, 63% of the 500 msg/s cap); 0 duplicate sends; 0 sent while paused; 200 replies and button votes counted |
+| 20k-recipient campaign, same mix | Last accepted after 63.6 s (315 msg/s); complete after 84.8 s (completion waits for the settle job and a sweep) |
+| Webhook burst: 5,000 signed status webhooks, 50 at a time | 328 req/s, 0 failures; p50 147 ms, p95 175 ms, p99 219 ms (dev mode, with pretty logs) |
+
+What the runs found and fixed:
+
+- **Completion before every delivery had a result:** the in-flight count could not tell a late result from a lost one. Now a `resolved` counter counts each delivery once, and completion needs `resolved` ≥ `total`; a stopped campaign's leftovers are skipped through the counters script.
+- **Rate collapse after a burst of 429s:** every request already in flight cut the rate again, down to the 10 msg/s floor, and it took about 40 minutes to recover. Now the rate is cut at most once per 2 s, and climbs back 10% every 10 s.
+- **`accepted` undercounted by a few:** a fast `failed` webhook could beat the sender's batched write of `accepted`. The counters script now counts `accepted` when it arrives late (rank -1 → -3).
+
+The send rate on this laptop is bound by the single local worker and Docker on Windows, not by the design: the target (90% of the number's rate) is to be checked on AWS in M18. The 100k run with the corrected error mix (1,000 numbers of each error kind) is still to be run.

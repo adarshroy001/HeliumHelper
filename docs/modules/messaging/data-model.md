@@ -75,13 +75,15 @@ Built with `redisKey(domain, purpose, id)`; the part in `{}` is the hash tag, an
 | --- | --- | --- | --- | --- |
 | `cfg:wa:pause:{global}` | string | none | API (ops) | Kill switch |
 | `wa:rl:{pn}` | hash `tokens`, `ts` | 60 s, refreshed | sender (Lua) | Token bucket |
-| `wa:rate:{pn}` | hash `rate`, `last429`, `lastUp` | none | sender (Lua) | Adaptive rate |
+| `wa:rate:{pn}` | hash `rate`, `lastCut`, `last429`, `lastUp` | none | sender (Lua) | Adaptive rate |
 | `wa:pause:{pn}` | string | the pause | sender, account consumer | Number pause |
 | `wa:acct:{accountId}` | string | none | workers, API | Account paused |
 | `wa:camp:{cid}` | string | removed at close | API, control | `sending`, `paused` or `stopped` |
 | `wa:active:{global}` | set | none | control | The feeder's campaigns |
-| `wa:feed:{cid}` | hash `cursor` | removed at close | feeder | Feed position |
-| `wa:cnt:{cid}` | hash | removed at close | Lua | Live counters |
+| `wa:feed:{cid}` | hash `cursor`, `exhausted` | removed at close | feeder | Feed position |
+| `wa:camp-wait:{cid}` | string reason | 2 min | feeder | Why the feeder is holding the campaign back, for stats |
+| `wa:cnt:{cid}` | hash | removed at close | Lua, feeder | Live counters: `total`, `fed`, `resolved`, the states, `replied`, `optedOut`, cost |
+| `wa:billed:{cid}` | hash deliveryId → 1 | removed at close | Lua (`countBillable`) | Cost counted once per delivery |
 | `wa:st:{cid}` | hash deliveryId → rank | removed at close | Lua | Idempotent transitions (about 80 MB per 1M recipients) |
 | `wa:btn:{cid}` | hash button → count | removed at close | inbound | Poll results |
 | `wa:claim:{deliveryId}` | string `inflight` or `ok:{wamid}` | 3 days | sender | At-most-once send |
@@ -100,21 +102,29 @@ At 1M sends a day, claims and the wamid map peak around 0.5 GB.
 | --- | --- | --- | --- |
 | `takeTokens` | `wa:rl:{pn}`, `wa:rate:{pn}` | want, priority, reserve fraction, now (ms) | Tokens granted |
 | `refundTokens` | `wa:rl:{pn}` | n | — |
-| `onRateLimited` | `wa:rate:{pn}`, `wa:pause:{pn}` | factor 0.7, floor, pause (ms), now | New rate |
-| `maybeRaiseRate` | `wa:rate:{pn}` | step 1.05, maxMps, quiet (ms), now | New rate |
+| `onRateLimited` | `wa:rate:{pn}`, `wa:pause:{pn}` | factor 0.7, floor, pause (ms), now, maxMps, cut window (ms) | Rate (cut at most once per window) |
+| `maybeRaiseRate` | `wa:rate:{pn}` | step 1.1, maxMps, quiet 10 s, now | New rate |
 | `transition` | `wa:st:{cid}`, `wa:cnt:{cid}` | deliveryId, status, pricing category | `applied`, previous rank |
 
 `transition` in brief:
 
 ```lua
 local cur = tonumber(redis.call('HGET', KEYS[1], ARGV[1]) or '0')
-if ARGV[2] == 'failed' then
-  if cur >= 3 or cur == -1 then return {0, cur} end
-  redis.call('HSET', KEYS[1], ARGV[1], -1); redis.call('HINCRBY', KEYS[2], 'failed', 1); return {1, cur}
+-- final ranks: -1 failed (accepted not counted), -3 failed after accepted, -2 skipped
+if cur == -1 and RANK[ARGV[2]] then                -- a fast failed webhook beat the sender's batch
+  redis.call('HSET', KEYS[1], ARGV[1], -3); redis.call('HINCRBY', KEYS[2], 'accepted', 1); return {0, cur}
 end
+if cur < 0 then return {0, cur} end
+if ARGV[2] == 'failed' then
+  if cur >= 3 then return {0, cur} end
+  redis.call('HSET', KEYS[1], ARGV[1], cur == 0 and -1 or -3); redis.call('HINCRBY', KEYS[2], 'failed', 1)
+  if cur == 0 then redis.call('HINCRBY', KEYS[2], 'resolved', 1) end; return {1, cur}
+end
+-- skipped: only from pending (rank -2), counts `skipped` and `resolved`
 local new = RANK[ARGV[2]]                       -- accepted 1, sent 2, delivered 3, read 4
-if new <= cur or cur == -1 then return {0, cur} end
+if new <= cur then return {0, cur} end
 redis.call('HSET', KEYS[1], ARGV[1], new)
+if cur == 0 then redis.call('HINCRBY', KEYS[2], 'resolved', 1) end      -- each delivery resolves once
 for r = cur + 1, new do redis.call('HINCRBY', KEYS[2], NAME[r], 1) end   -- read also counts delivered
 return {1, cur}
 ```

@@ -240,24 +240,6 @@ export class DeliveriesRepository {
     }
   }
 
-  /** Marks a campaign's never-sent deliveries skipped; returns how many. */
-  async skipPending(campaignId: string, reason: string): Promise<number> {
-    const result = await this.model
-      .updateMany(
-        { campaignId: new Types.ObjectId(campaignId), status: 'pending' },
-        {
-          $set: {
-            status: 'skipped',
-            statusRank: STATUS_RANK.skipped,
-            skippedAt: new Date(),
-            skipReason: reason,
-          },
-        },
-      )
-      .exec();
-    return result.modifiedCount;
-  }
-
   /** The next pending deliveries of a campaign after `cursor`, in order, for the feeder. */
   async pendingAfter(
     campaignId: string,
@@ -348,6 +330,12 @@ export class DeliveriesRepository {
       .sort({ createdAt: -1 })
       .limit(limit)
       .lean<Delivery[]>()
+      .exec();
+  }
+
+  async countPending(campaignId: string): Promise<number> {
+    return this.model
+      .countDocuments({ campaignId: new Types.ObjectId(campaignId), status: 'pending' })
       .exec();
   }
 }

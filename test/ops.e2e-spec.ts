@@ -187,6 +187,7 @@ describe('messaging operations (API, worker, mock-meta)', () => {
     expect(res.body).toEqual({
       counts: {
         total: 4,
+        resolved: 3,
         fed: 3,
         accepted: 3,
         sent: 2,

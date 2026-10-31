@@ -33,8 +33,8 @@ describe('feed rules', () => {
     expect(hours[23]).toBe('2026103011');
   });
 
-  it('counts sends in flight as fed minus results', () => {
-    expect(inFlight({ fed: 100, accepted: 60, failed: 5, skipped: 5 })).toBe(30);
+  it('counts sends in flight as fed minus resolved deliveries', () => {
+    expect(inFlight({ fed: 100, resolved: 70, accepted: 65, failed: 5 })).toBe(30);
     expect(inFlight({})).toBe(0);
   });
 });
