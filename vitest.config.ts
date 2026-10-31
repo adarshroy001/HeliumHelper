@@ -17,6 +17,13 @@ export default defineConfig({
       APP_ENV: 'local',
       LOG_LEVEL: 'silent',
       AUTH_CALLER_SECRETS: JSON.stringify({ 'helium-admin': 'test-secret-0123456789-0123456789-abc' }),
+      WA_GRAPH_URL: 'http://127.0.0.1:9',
+      WA_ACCESS_TOKEN: 'test-access-token',
+      WA_APP_SECRETS: 'test-app-secret-0123456789',
+      WA_VERIFY_TOKEN: 'test-verify-token-0123',
+      WA_WABA_ID: '100000000000001',
+      WA_PHONE_NUMBER_ID: '100000000000002',
+      WA_PORTFOLIO_ID: '100000000000003',
     },
     coverage: {
       provider: 'v8',

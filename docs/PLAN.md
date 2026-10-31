@@ -41,7 +41,7 @@ The workflow and the Definition of Done for every task are in [CONVENTIONS.md](C
 | F25 | AWS services and staging deploy | F24 | Code done; staging deploy deferred (needs AWS) |
 | F26 | Deploy pipeline and runbook | F25 | Code done; first deploy and rollback rehearsal deferred (needs AWS) |
 | M1 | Messaging design and plan | F26 | Done |
-| M2 | WhatsApp building blocks | M1 | Not started |
+| M2 | WhatsApp building blocks | M1 | Done |
 | M3 | Webhook intake | M2 | Not started |
 | M4 | mock-meta | M2 | Not started |
 | M5 | Messaging data model | M1 | Not started |
@@ -551,7 +551,7 @@ The design is in [docs/modules/messaging/](modules/messaging/README.md), with th
 
 - **Goal:** production runs on the new engine, and the v1 worker is gone.
 - **Scope:**
-    - Deploy (F25, F26) with the messaging queues; the webhook route or a Lambda.
+    - Deploy (F25, F26) with the messaging queues; the webhook route or a Lambda. The CDK app gets the `WA_*` settings per environment and the WhatsApp secrets (access token, app secrets, verify token) in Secrets Manager.
     - A smoke test with the real number on a 5-number list.
     - Switch Meta's callback URL when no v1 campaign is sending.
     - Canary: 1k, 10k, 100k recipients, comparing with v1.
