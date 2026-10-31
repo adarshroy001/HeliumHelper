@@ -43,7 +43,7 @@ The workflow and the Definition of Done for every task are in [CONVENTIONS.md](C
 | M1 | Messaging design and plan | F26 | Done |
 | M2 | WhatsApp building blocks | M1 | Done |
 | M3 | Webhook intake | M2 | Done |
-| M4 | mock-meta | M2 | Not started |
+| M4 | mock-meta | M2 | Done |
 | M5 | Messaging data model | M1 | Not started |
 | M6 | Sender | M2, M5 | Not started |
 | M7 | Status consumer | M5, M6 | Not started |

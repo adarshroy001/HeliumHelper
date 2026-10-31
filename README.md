@@ -17,7 +17,7 @@ Helium's backend: a NestJS modular monolith for APIs, background workers and int
 | Docker Desktop (or Docker Engine with Compose v2) | Running. Local MongoDB, Valkey and ElasticMQ run in containers, and so do the integration tests | `docker compose version` |
 | Git | Any recent | `git --version` |
 
-Free ports: 3000 (API), 3001 (worker health), 27017 (MongoDB), 6379 (Valkey), 9324 (ElasticMQ).
+Free ports: 3000 (API), 3001 (worker health), 4010 (mock-meta), 27017 (MongoDB), 6379 (Valkey), 9324 (ElasticMQ).
 
 ### First run
 
@@ -38,6 +38,13 @@ pnpm dev:token --roles <role>               # a token for calling /internal/v1 r
 ```
 
 The API docs are at http://localhost:3000/docs. Every 5 minutes the worker logs `scheduler heartbeat`: the scheduler, the queue and the worker all work.
+
+`pnpm dev` also starts **mock-meta** on port 4010, a fake of Meta's WhatsApp API: the app sends to it instead of Meta, and it sends signed webhooks back to the API. Its test controls are under `/_sim` (see the top of `tools/mock-meta/mock-meta.ts`); for example, a customer reply:
+
+```bash
+curl -X POST localhost:4010/_sim/inbound -d '{"from":"919800000000","text":"Hi"}'
+curl localhost:4010/_sim/stats
+```
 
 `Ctrl+C` stops the API and the worker. The containers keep running; `docker compose down` stops them (add `-v` to delete their data).
 
@@ -63,6 +70,8 @@ The full list, and how to write code here, is in [CLAUDE.md](CLAUDE.md) and [doc
 | `Unsupported engine` on install | Use Node 24 (`nvm use`, or install it from nodejs.org) |
 | `Starting MongoDB, Valkey and ElasticMQ failed` | Start Docker Desktop and wait until it says it is running |
 | `port is already allocated` | Something else uses the port. Stop it, or another copy of the containers (`docker ps`) |
+| `EADDRINUSE ... :3000` | Another app (often the storefront's `next dev`) uses port 3000. Run `PORT=3100 pnpm dev`; mock-meta follows `PORT` |
+| `Invalid configuration (whatsapp)` | Your `.env` predates a setting. `pnpm dev` adds missing settings from `.env.example`; or copy them by hand |
 | The app exits with `Invalid configuration` | It names each wrong variable. Compare `.env` with `.env.example`; delete `.env` to get a fresh copy |
 | `startup failed` with `ECONNREFUSED` or `Connection is closed` | The containers aren't up: `docker compose up -d --wait` |
 | A queue is missing locally | Add it to `docker/elasticmq.conf`, then `docker compose restart elasticmq` |

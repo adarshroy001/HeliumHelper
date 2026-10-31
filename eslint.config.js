@@ -117,7 +117,7 @@ export default defineConfig(
   // Environment variables are read only in src/config, which validates them (CONVENTIONS R12).
   {
     files: ['**/*.ts'],
-    ignores: ['src/config/**', 'test/**', 'scripts/**', 'deploy/**', 'vitest.config.ts'],
+    ignores: ['src/config/**', 'test/**', 'scripts/**', 'deploy/**', 'tools/**', 'vitest.config.ts'],
     rules: {
       'no-restricted-properties': [
         'error',

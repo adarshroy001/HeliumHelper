@@ -49,7 +49,7 @@ export default defineConfig({
         extends: true,
         test: {
           name: 'int',
-          include: ['src/**/*.int-spec.ts'],
+          include: ['src/**/*.int-spec.ts', 'tools/**/*.int-spec.ts'],
           globalSetup: ['test/global-setup.ts'],
           testTimeout: 30_000,
           hookTimeout: 180_000,

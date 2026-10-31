@@ -1,0 +1,16 @@
+{
+  // Tools run directly on Node 24 (type stripping), so only erasable TypeScript is allowed and relative imports
+  // name the .ts file.
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "..",
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true,
+    "experimentalDecorators": false,
+    "emitDecoratorMetadata": false
+  },
+  "include": ["./**/*.ts"],
+  // Tests import app code (decorators, parameter properties); the root tsconfig checks them.
+  "exclude": ["./**/*.int-spec.ts"]
+}

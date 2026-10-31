@@ -22,6 +22,10 @@ WhatsApp messaging ([ADR-0015](../../../docs/adr/0015-whatsapp-messaging.md)): a
 
 More collections, queues, routes and error codes are added by M4–M15 and listed here as they land.
 
+## Testing against mock-meta
+
+`tools/mock-meta/` fakes Meta's Graph API: sends with a per-number rate limit, errors chosen by the recipient's last four digits, and signed status and inbound webhooks with duplicates and reordering. `pnpm dev` runs it on port 4010 (`WA_GRAPH_URL` in `.env.example`); integration tests start it in-process with `startMockMeta()`.
+
 ## Rules worth knowing
 
 - **Phones** are stored and sent as `91` + 10 digits (`normalizePhone`). Log them only through `maskPhone()`.

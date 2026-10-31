@@ -1,8 +1,11 @@
 import { createHmac } from 'node:crypto';
+import type { AddressInfo } from 'node:net';
 import type { SQSClient } from '@aws-sdk/client-sqs';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { QueuePublisher } from '../src/infrastructure/queue/index.js';
+import { GraphClient } from '../src/modules/messaging/index.js';
+import { startMockMeta } from '../tools/mock-meta/mock-meta.ts';
 import { createTestApp, type TestApp } from './helpers/create-test-app.js';
 import { createTestQueue, receiveAll, testSqsClient, type TestQueue } from './helpers/sqs.js';
 
@@ -149,5 +152,48 @@ describe('WhatsApp webhook intake when the queue is down', () => {
     expect(res.status).toBe(503);
     expect(res.body).toMatchObject({ code: 'WEBHOOK_NOT_QUEUED' });
     await t.app.close();
+  });
+});
+
+describe('mock-meta → webhook route', () => {
+  it("delivers mock-meta's signed status webhooks to the real route, which queues them", async () => {
+    const sqs = testSqsClient();
+    const status = await createTestQueue(sqs, { name: 'wa-status' });
+    await receiveAll(sqs, status.url);
+    const t = await createTestApp();
+    await t.app.listen(0);
+    const { port } = t.http.address() as AddressInfo;
+    const meta = await startMockMeta({
+      port: 0,
+      webhookUrl: `http://127.0.0.1:${String(port)}/webhooks/whatsapp`,
+      appSecret: APP_SECRET,
+      latencyMs: { p50: 1, p99: 2 },
+      statusDelayMs: 5,
+      readRatio: 1,
+      duplicateRatio: 0,
+      skipDeliveredRatio: 0,
+    });
+    const graph = new GraphClient({ baseUrl: meta.url, version: 'v26.0', accessToken: 'any' });
+
+    const result = await graph.send({
+      phoneNumberId: '100000000000002',
+      endpoint: 'messages',
+      to: '919800000000',
+      content: { kind: 'text', text: 'hello' },
+      callbackData: 'd:e2e',
+    });
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    await meta.emitter?.drain();
+    const queued = (await receiveAll(sqs, status.url)).flatMap((m) => {
+      const body = JSON.parse(m.Body ?? '{}') as { data: { value: { statuses: { status: string }[] } } };
+      return body.data.value.statuses.map((s) => s.status);
+    });
+
+    expect(result).toMatchObject({ ok: true });
+    expect(meta.emitter?.stats.failed).toBe(0);
+    expect(queued.sort()).toEqual(['delivered', 'read', 'sent']);
+    await meta.close();
+    await t.app.close();
+    sqs.destroy();
   });
 });
