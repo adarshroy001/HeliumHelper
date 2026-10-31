@@ -38,6 +38,7 @@ import { CampaignCounters } from './sending/campaign-counters.js';
 import { RateLimiter } from './sending/rate-limiter.js';
 import { SendP1Consumer, SendP2Consumer } from './sending/send.consumers.js';
 import { SendFlusher } from './sending/send-flusher.js';
+import { UnconfirmedSettler } from './sending/unconfirmed-settler.js';
 import { SenderService } from './sending/sender.service.js';
 import { AccountEventsService } from './account/account-events.service.js';
 import { AccountConsumer } from './account/account.consumer.js';
@@ -93,6 +94,7 @@ import { GraphClient } from './whatsapp/graph-client.js';
     MessagingJobsConsumer,
     RateLimiter,
     SendFlusher,
+    UnconfirmedSettler,
     SenderService,
     SendP1Consumer,
     SendP2Consumer,

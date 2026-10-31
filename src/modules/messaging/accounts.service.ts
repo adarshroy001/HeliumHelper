@@ -23,6 +23,25 @@ export class AccountsService implements OnApplicationBootstrap {
     await this.accounts.upsertFromConfig({ _id: MAIN_ACCOUNT_ID, ...this.config.account });
   }
 
+  /** What a campaign start checks: the account's state and whether marketing is paused on it. */
+  async health(): Promise<{
+    paused: boolean;
+    pauseReason?: string;
+    marketingPaused: boolean;
+    quality?: string;
+  }> {
+    const [account, marketing] = await Promise.all([
+      this.accounts.findById(MAIN_ACCOUNT_ID),
+      this.redis.get(keys.marketingPaused(MAIN_ACCOUNT_ID)),
+    ]);
+    return {
+      paused: account?.status === 'paused',
+      ...(account?.pauseReason === undefined ? {} : { pauseReason: account.pauseReason }),
+      marketingPaused: marketing !== null,
+      ...(account?.quality === undefined ? {} : { quality: account.quality }),
+    };
+  }
+
   /** Stops all sending from the account: the senders' gate closes within a receive. */
   async pause(reason: string): Promise<void> {
     await this.redis.set(keys.accountPaused(MAIN_ACCOUNT_ID), reason);

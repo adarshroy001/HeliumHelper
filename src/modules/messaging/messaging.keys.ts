@@ -16,6 +16,14 @@ export const keys = {
   campaignState: (campaignId: string) => redisKey('wa', 'camp', campaignId),
   /** Why the sender paused a campaign (a template error); the campaign sweeper records it. */
   campaignPauseRequest: (campaignId: string) => redisKey('wa', 'camp-pause', campaignId),
+  /** Campaigns the feeder serves (set of campaign IDs). */
+  activeCampaigns: () => redisKey('wa', 'active', 'global'),
+  /** A campaign's feed position: the last `seq` fed. */
+  feedCursor: (campaignId: string) => redisKey('wa', 'feed', campaignId),
+  /** The feeder's leader lock. */
+  feederLock: () => redisKey('wa', 'feeder', 'lock'),
+  /** Why the feeder is holding a sending campaign back (outside its window, daily limit), shown in its stats. */
+  campaignWaiting: (campaignId: string) => redisKey('wa', 'camp-wait', campaignId),
   ranks: (campaignId: string) => redisKey('wa', 'st', campaignId),
   counters: (campaignId: string) => redisKey('wa', 'cnt', campaignId),
   /** Deliveries already counted as billable (deliveryId → pricing category). */

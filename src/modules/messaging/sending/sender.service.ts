@@ -16,6 +16,7 @@ import {
   retryDelaySeconds,
 } from '../whatsapp/meta-errors.js';
 import { deliveryRef } from '../statuses/delivery-ref.js';
+import { CampaignCounters } from './campaign-counters.js';
 import { CampaignSignals } from './campaign-signals.js';
 import { type Priority, RateLimiter } from './rate-limiter.js';
 import { SendFlusher } from './send-flusher.js';
@@ -44,6 +45,7 @@ export class SenderService {
     private readonly flusher: SendFlusher,
     private readonly accountsService: AccountsService,
     private readonly signals: CampaignSignals,
+    private readonly counters: CampaignCounters,
     private readonly logger: PinoLogger,
   ) {
     logger.setContext(SenderService.name);
@@ -64,18 +66,16 @@ export class SenderService {
 
   async send(data: DeliverySendData, priority: Priority, receiveCount: number): Promise<Outcome> {
     const { deliveryId: id, campaignId } = data;
-    if (campaignId !== undefined) {
-      const state = await this.campaignState(campaignId);
-      if (state === 'stopped')
-        return this.record({ id, result: 'skipped', reason: 'stopped', at: new Date() }, campaignId);
-      // Paused, or not started: it stays pending in the database and is fed again on resume.
-      if (state !== 'sending') return ack();
-    }
+    const held = await this.campaignHold(id, campaignId);
+    if (held !== null) return held;
     if (data.businessInitiated && (await this.redis.sismember(keys.suppressed(), data.to)) === 1) {
       return this.record({ id, result: 'skipped', reason: 'suppressed', at: new Date() }, campaignId);
     }
 
     await this.limiter.acquire(data.phoneNumberId, priority, this.config.account.maxMps);
+    // Waiting for a token can take seconds: a pause or stop in the meantime still applies.
+    const heldAfterWait = await this.campaignHold(id, campaignId);
+    if (heldAfterWait !== null) return heldAfterWait;
 
     const claimKey = keys.claim(id);
     if ((await this.redis.set(claimKey, 'inflight', 'EX', CLAIM_SECONDS, 'NX')) === null) {
@@ -181,6 +181,20 @@ export class SenderService {
         // It stays pending and is fed again when the campaign resumes.
         return ack();
     }
+  }
+
+  /**
+   * What to do instead of sending when the campaign isn't sending: a stopped campaign's delivery is skipped; a
+   * paused (or not started) one stays pending and is fed again on resume, so it no longer counts as fed.
+   */
+  private async campaignHold(id: string, campaignId: string | undefined): Promise<Outcome | null> {
+    if (campaignId === undefined) return null;
+    const state = await this.campaignState(campaignId);
+    if (state === 'sending') return null;
+    if (state === 'stopped')
+      return this.record({ id, result: 'skipped', reason: 'stopped', at: new Date() }, campaignId);
+    await this.counters.increment(campaignId, 'fed', -1);
+    return ack();
   }
 
   private async record(outcome: SendOutcome, campaignId: string | undefined): Promise<Outcome> {

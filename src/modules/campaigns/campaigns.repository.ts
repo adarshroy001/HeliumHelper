@@ -90,6 +90,51 @@ export class CampaignsRepository {
       .exec();
   }
 
+  /** Scheduled campaigns whose time has come. */
+  async findDue(now: Date, limit = 50): Promise<CampaignDocument[]> {
+    return this.model
+      .find({ status: 'scheduled', 'schedule.at': { $lte: now } })
+      .limit(limit)
+      .lean<CampaignDocument[]>()
+      .exec();
+  }
+
+  /** Builds whose heartbeat stopped before `before` (a crashed or lost build). */
+  async findStuckBuilds(before: Date): Promise<CampaignDocument[]> {
+    return this.model
+      .find({ status: 'building', 'build.heartbeatAt': { $lt: before } })
+      .lean<CampaignDocument[]>()
+      .exec();
+  }
+
+  /** Stopped campaigns whose never-sent deliveries haven't been skipped yet. */
+  async findStoppedUnfinalized(): Promise<CampaignDocument[]> {
+    return this.model
+      .find({ status: 'stopped', finalizedAt: { $exists: false } })
+      .lean<CampaignDocument[]>()
+      .exec();
+  }
+
+  /** Finished campaigns old enough to close. */
+  async findClosable(before: Date): Promise<CampaignDocument[]> {
+    return this.model
+      .find({
+        $or: [
+          { status: 'send_complete', sendCompletedAt: { $lt: before } },
+          { status: 'stopped', finalizedAt: { $exists: true }, stoppedAt: { $lt: before } },
+        ],
+      })
+      .lean<CampaignDocument[]>()
+      .exec();
+  }
+
+  async findByIds(ids: readonly string[]): Promise<CampaignDocument[]> {
+    return this.model
+      .find({ _id: { $in: ids.filter((id) => Types.ObjectId.isValid(id)) } })
+      .lean<CampaignDocument[]>()
+      .exec();
+  }
+
   async delete(id: string, version: number, session?: ClientSession): Promise<boolean> {
     const result = await this.model.deleteOne({ _id: id, status: 'draft', version }, { session }).exec();
     return result.deletedCount === 1;

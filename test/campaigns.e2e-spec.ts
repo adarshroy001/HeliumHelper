@@ -7,6 +7,7 @@ import { DEFAULT_TEMPLATES } from '../tools/mock-meta/fixtures.ts';
 import { createTestApp, type TestApp } from './helpers/create-test-app.js';
 import { applyMigrations } from './helpers/migrations.js';
 import { isolatedDatabases } from './helpers/mongo.js';
+import { isolatedRedis } from './helpers/redis.js';
 import { signToken } from './helpers/tokens.js';
 
 const token = (roles: string[]) => signToken({ act: { id: 'admin-1', email: 'admin@heliumair.in', roles } });
@@ -19,6 +20,7 @@ describe('campaign drafts and uploads (API)', () => {
 
   beforeAll(async () => {
     isolatedDatabases('campaigns');
+    isolatedRedis(5);
     t = await createTestApp();
     db = t.app.get<Connection>(getConnectionToken(DB.messaging));
     await applyMigrations(db);

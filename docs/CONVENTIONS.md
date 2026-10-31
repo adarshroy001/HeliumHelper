@@ -244,6 +244,7 @@ Every error response has one shape ([ADR-0008](adr/0008-error-contract.md)):
     - Handlers are idempotent by a natural key (R10): SQS may deliver a message more than once.
     - Each message runs in its own context: `ClsService.getId()` is its `correlationId`, and every log line carries `correlationId`, `messageId` and `queue`.
 - **The worker process** (`src/worker.ts`, `pnpm start:worker`) runs the consumers named in `WORKER_QUEUES` (comma-separated, or `*`), and serves only `/health/*` on `WORKER_HEALTH_PORT`. A name without a consumer fails the start. On SIGTERM it stops receiving, finishes in-flight messages (up to 25 seconds) and exits; anything unfinished comes back after its visibility timeout. Business modules with consumers are imported into `WorkerModule`.
+- **Worker loops:** work a worker runs continuously, not per message (the campaign feeder), is a provider marked `@WorkerLoop('<name>')` implementing `start()` and `stop()`. It runs only where `WORKER_QUEUES` names it (or is `*`), and is stopped before shutdown. Keep it to coordination; heavy work still goes through queues.
 - **Scheduled jobs** never run code from a timer: at each tick a message goes on a queue and a normal consumer handles it ([ADR-0006](adr/0006-async-work.md)).
     - Declare one with `defineSchedule({ name, description, cron, timezone, queue, message, data })` in the owning module, and add it to `src/schedules.ts`.
     - `cron` has five fields; day-of-week is `*` or names (`MON-FRI`), never numbers. Set day-of-month or day-of-week, not both.
@@ -251,6 +252,7 @@ Every error response has one shape ([ADR-0008](adr/0008-error-contract.md)):
     - Locally the worker's timer publishes the same messages (`APP_ENV=local`, not in tests).
     - A scheduled message's envelope gets EventBridge's execution ID as `id` and `correlationId`, and the scheduled time as `ts`.
 - **Locally:** ElasticMQ in docker-compose; queues are declared in `docker/elasticmq.conf`, each with its `-dlq`. Tests create their own queues with `createTestQueue()` (`test/helpers/sqs.ts`).
+- **Test files that run workers** isolate themselves, since files run in parallel: `isolatedQueues(sqs, '<name>-', [...])`, `isolatedDatabases('<name>')` (`test/helpers/mongo.ts`) and `isolatedRedis(<1–15>)` (`test/helpers/redis.ts`), called before creating the app, with `process.env` restored after.
 
 ## Stored files
 

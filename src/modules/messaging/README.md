@@ -36,7 +36,8 @@ WhatsApp messaging ([ADR-0015](../../../docs/adr/0015-whatsapp-messaging.md)): a
 | Consumer | `InboundConsumer` on `wa-inbound` | Idempotent by wamid; auto-replies go out on `wa-send-p1` |
 | Redis | `wa:csw` (service window, 24 h), `wa:vote`, `wa:btn`, `wa:optout`, `wa:autoreply` (per campaign) | `wa:autoreply` is written by the campaign lifecycle (M12) |
 | Consumer | `AccountConsumer` on `wa-account`; `MessagingJobsConsumer` on `messaging-jobs` | |
-| Schedule | `messaging-templates-sync` (15 min), `messaging-suppressions-reload` (10 min) | Message `messaging.job.run` |
+| Schedule | `messaging-templates-sync` (15 min), `messaging-suppressions-reload` (10 min), `messaging-unconfirmed-settle` (1 min) | Message `messaging.job.run` |
+| Exports | `DeliveryLedger`, `SuppressionsService` | The campaigns module's only way to `deliveries` and the suppression mirror |
 | Redis | `wa:tpl-camps:{name:language}`, `wa:mkt-paused:{account}`, `wa:limit:{portfolio}` | Template users, marketing pause, daily limit |
 | Exports | `CampaignCounters`, `CampaignSignals`, `TemplatesService`, `AccountsService`, `GraphClient` | For the campaigns module |
 | Error | `TEMPLATE_SYNC_FAILED` (502, retryable), `TEMPLATE_NOT_FOUND` (404), `MEDIA_NOT_FOUND` (404), `MEDIA_UNSUPPORTED` (422), `MEDIA_UPLOAD_FAILED` (502) | |

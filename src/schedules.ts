@@ -1,5 +1,10 @@
 import type { Schedule } from './infrastructure/queue/index.js';
-import { suppressionsReloadSchedule, templatesSyncSchedule } from './modules/messaging/index.js';
+import { campaignSweepSchedule } from './modules/campaigns/index.js';
+import {
+  suppressionsReloadSchedule,
+  templatesSyncSchedule,
+  unconfirmedSettleSchedule,
+} from './modules/messaging/index.js';
 import { heartbeatSchedule } from './modules/system/index.js';
 
 /**
@@ -11,4 +16,6 @@ export const SCHEDULES: readonly Schedule<unknown>[] = [
   heartbeatSchedule,
   templatesSyncSchedule,
   suppressionsReloadSchedule,
+  unconfirmedSettleSchedule,
+  campaignSweepSchedule,
 ];

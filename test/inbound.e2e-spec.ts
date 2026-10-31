@@ -11,6 +11,7 @@ import { startMockMeta, type MockMeta } from '../tools/mock-meta/mock-meta.ts';
 import { createTestApp, type TestApp } from './helpers/create-test-app.js';
 import { applyMigrations } from './helpers/migrations.js';
 import { isolatedDatabases } from './helpers/mongo.js';
+import { isolatedRedis } from './helpers/redis.js';
 import { isolatedQueues, testSqsClient } from './helpers/sqs.js';
 
 const APP_SECRET = 'test-app-secret-0123456789';
@@ -40,6 +41,7 @@ describe('inbound messages (API webhook, worker, mock-meta)', () => {
 
   beforeAll(async () => {
     isolatedDatabases('inbound');
+    isolatedRedis(3);
     const sqs = testSqsClient();
     await isolatedQueues(sqs, 'inbound-', [
       'wa-status',

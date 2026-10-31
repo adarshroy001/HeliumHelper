@@ -125,6 +125,10 @@ export class Campaign {
 
   @Prop()
   closedAt?: Date;
+
+  /** When a stopped campaign's never-sent deliveries were skipped. */
+  @Prop()
+  finalizedAt?: Date;
 }
 export const CampaignSchema = SchemaFactory.createForClass(Campaign);
 export type CampaignDocument = Omit<Campaign, never> & { _id: Types.ObjectId };

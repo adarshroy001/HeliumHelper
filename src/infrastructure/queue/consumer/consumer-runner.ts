@@ -12,6 +12,7 @@ import { queueConfig, type QueueConfig, workerConfig, type WorkerConfig } from '
 import type { Envelope } from '../envelope.js';
 import { CONSUMER_OPTIONS, type ConsumerOptions, type MessageHandler } from './consumer.js';
 import { ConsumerLoop } from './consumer-loop.js';
+import { type BackgroundLoop, WORKER_LOOP } from './worker-loop.js';
 
 /**
  * Finds every `@Consumer` class at startup and runs the ones `WORKER_QUEUES` names, one loop per queue. Each
@@ -22,6 +23,7 @@ import { ConsumerLoop } from './consumer-loop.js';
 @Injectable()
 export class ConsumerRunner implements OnApplicationBootstrap, BeforeApplicationShutdown {
   private readonly loops: ConsumerLoop<unknown>[] = [];
+  private readonly background: BackgroundLoop[] = [];
 
   constructor(
     private readonly discovery: DiscoveryService,
@@ -44,13 +46,28 @@ export class ConsumerRunner implements OnApplicationBootstrap, BeforeApplication
       return options === undefined ? [] : [{ options, handler: wrapper.instance as MessageHandler<unknown> }];
     });
 
+    const loops = this.discovery.getProviders().flatMap((wrapper) => {
+      const name =
+        typeof wrapper.metatype === 'function'
+          ? this.reflector.get<string | undefined>(WORKER_LOOP, wrapper.metatype)
+          : undefined;
+      return name === undefined ? [] : [{ name, loop: wrapper.instance as BackgroundLoop }];
+    });
+
     const wanted = this.worker.queues;
     const selected = wanted === 'all' ? consumers : consumers.filter((c) => wanted.includes(c.options.queue));
     if (wanted !== 'all') {
-      const missing = wanted.filter((queue) => !consumers.some((c) => c.options.queue === queue));
+      const known = new Set([...consumers.map((c) => c.options.queue), ...loops.map((l) => l.name)]);
+      const missing = wanted.filter((queue) => !known.has(queue));
       if (missing.length > 0) {
         throw new Error(`WORKER_QUEUES names queues with no consumer: ${missing.join(', ')}`);
       }
+    }
+    for (const { name, loop } of loops) {
+      if (wanted !== 'all' && !wanted.includes(name)) continue;
+      loop.start();
+      this.background.push(loop);
+      this.logger.info({ loop: name }, 'running');
     }
     if (selected.length === 0) this.logger.warn('no consumers to run: set WORKER_QUEUES');
 
@@ -68,7 +85,10 @@ export class ConsumerRunner implements OnApplicationBootstrap, BeforeApplication
   }
 
   async beforeApplicationShutdown(): Promise<void> {
-    await Promise.all(this.loops.map((loop) => loop.stop()));
+    await Promise.all([
+      ...this.loops.map((loop) => loop.stop()),
+      ...this.background.map((loop) => loop.stop()),
+    ]);
     this.logger.info({ queues: this.loops.length }, 'consumers stopped');
   }
 

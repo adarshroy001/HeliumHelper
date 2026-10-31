@@ -21,7 +21,11 @@ export {
   type TemplateVariable,
   type VariableMapping,
 } from './whatsapp/template.js';
-export { suppressionsReloadSchedule, templatesSyncSchedule } from './jobs/messaging-jobs.js';
+export {
+  suppressionsReloadSchedule,
+  templatesSyncSchedule,
+  unconfirmedSettleSchedule,
+} from './jobs/messaging-jobs.js';
 export { AccountsService, MAIN_ACCOUNT_ID } from './accounts.service.js';
 export { MediaService } from './api/media.service.js';
 export { CampaignCounters } from './sending/campaign-counters.js';
@@ -36,3 +40,4 @@ export {
 } from './messaging.messages.js';
 export { type CampaignRecipient, DeliveryLedger, type RetargetOutcome } from './ledger/delivery-ledger.js';
 export { SuppressionsService } from './suppressions/suppressions.service.js';
+export { type DeliveryPayload } from './data/delivery.schema.js';

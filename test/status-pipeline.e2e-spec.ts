@@ -13,6 +13,7 @@ import { startMockMeta, type MockMeta } from '../tools/mock-meta/mock-meta.ts';
 import { createTestApp, type TestApp } from './helpers/create-test-app.js';
 import { applyMigrations } from './helpers/migrations.js';
 import { isolatedDatabases } from './helpers/mongo.js';
+import { isolatedRedis } from './helpers/redis.js';
 import { isolatedQueues, testSqsClient } from './helpers/sqs.js';
 
 const APP_SECRET = 'test-app-secret-0123456789';
@@ -35,6 +36,7 @@ describe('status pipeline: send → Meta → webhook → statuses (API, worker, 
 
   beforeAll(async () => {
     isolatedDatabases('pipeline');
+    isolatedRedis(2);
     const sqs = testSqsClient();
     await isolatedQueues(sqs, 'pipeline-', [
       'wa-send-p1',

@@ -239,4 +239,44 @@ export class DeliveriesRepository {
       };
     }
   }
+
+  /** Marks a campaign's never-sent deliveries skipped; returns how many. */
+  async skipPending(campaignId: string, reason: string): Promise<number> {
+    const result = await this.model
+      .updateMany(
+        { campaignId: new Types.ObjectId(campaignId), status: 'pending' },
+        {
+          $set: {
+            status: 'skipped',
+            statusRank: STATUS_RANK.skipped,
+            skippedAt: new Date(),
+            skipReason: reason,
+          },
+        },
+      )
+      .exec();
+    return result.modifiedCount;
+  }
+
+  /** The next pending deliveries of a campaign after `cursor`, in order, for the feeder. */
+  async pendingAfter(
+    campaignId: string,
+    cursor: number,
+    limit: number,
+  ): Promise<{ id: string; seq: number; to: string; payload: Delivery['payload'] }[]> {
+    const rows = await this.model
+      .find(
+        { campaignId: new Types.ObjectId(campaignId), status: 'pending', seq: { $gt: cursor } },
+        { _id: 1, seq: 1, to: 1, payload: 1 },
+      )
+      .sort({ seq: 1 })
+      .limit(limit)
+      .lean<{ _id: Types.ObjectId; seq: number; to: string; payload: Delivery['payload'] }[]>()
+      .exec();
+    return rows.map((r) => ({ id: String(r._id), seq: r.seq, to: r.to, payload: r.payload }));
+  }
+
+  async markUnconfirmedRetry(id: string): Promise<void> {
+    await this.model.updateOne({ _id: toDeliveryId(id) }, { $set: { unconfirmedRetry: true } }).exec();
+  }
 }

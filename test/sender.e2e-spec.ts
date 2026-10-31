@@ -13,6 +13,7 @@ import { startMockMeta, type MockMeta } from '../tools/mock-meta/mock-meta.ts';
 import { createTestApp, type TestApp } from './helpers/create-test-app.js';
 import { applyMigrations } from './helpers/migrations.js';
 import { isolatedDatabases } from './helpers/mongo.js';
+import { isolatedRedis } from './helpers/redis.js';
 import { isolatedQueues, testSqsClient } from './helpers/sqs.js';
 
 // The app secret Vitest configures (vitest.config.ts); mock-meta signs with it.
@@ -43,6 +44,7 @@ describe('sender (worker, MongoDB, Valkey, ElasticMQ, mock-meta)', () => {
 
   beforeAll(async () => {
     isolatedDatabases('sender');
+    isolatedRedis(1);
     const sqs = testSqsClient();
     await isolatedQueues(sqs, 'sender-', ['wa-send-p1', 'wa-send-p2']);
     sqs.destroy();

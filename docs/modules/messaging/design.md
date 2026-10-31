@@ -225,24 +225,26 @@ Run by the control consumer (`campaign.command.run` with `build`, on the standar
 
 ### Feeder
 
-One leader across all worker processes (`SET wa:feeder:lock <task> NX PX 15000`, renewed every 5 s). Every second it goes round-robin over the campaigns in `wa:active`:
+A worker loop (`@WorkerLoop('campaign-feeder')`, run where `WORKER_QUEUES` names it or is `*`), with one leader across all workers (`SET wa:feeder:{lock} <owner> NX PX 15000`, renewed every pass). Every second it goes over the campaigns in `wa:active`:
 
 - **Skip** a campaign when:
     - it's outside its send window (it continues when the window opens);
     - the portfolio limit is at 95% (`waitingForLimit`).
-- **Target backlog** = the number's current rate × 120 s ÷ active campaigns on that number, capped by the campaign's `maxMps` × 120 s.
+- **Target backlog** = the number's current rate × 120 s ÷ active sending campaigns; and never more than the campaign's `maxMps` per pass (one second), which is its speed cap.
 - **In flight** = `fed − (accepted + failed + skipped)`, from the counters.
 - **If in flight is below target:** read the next deliveries `{ campaignId, status: 'pending', seq: { $gt: cursor } }` sorted by `seq`, publish them to `wa-send-p2` (`groupId = campaignId`), and add to `fed`.
-- **Cursor:** saved in Redis every batch and in `campaign.feed.cursor` every 5 s. An empty read sets `feed.exhausted`.
+- **Cursor:** the hash `wa:feed:{campaignId}` (`cursor`, `exhausted`). `fed` is counted before publishing and taken back if publishing fails. An empty read sets `exhausted`. Why a campaign is held back is kept in `wa:camp-wait:{campaignId}` (2 minutes) for its stats.
 - **After a pause,** the cursor resets to the lowest pending `seq`; already-sent deliveries are skipped by their claims.
 
 ### Pause, stop and the kill switch
 
 | Action | Takes effect | Messages already queued | Pending deliveries |
 | --- | --- | --- | --- |
-| Pause | Within 2 s (1 s state cache) | Acked without sending | Stay pending; resume feeds them |
-| Stop | Within 2 s | Acked and marked skipped | One `updateMany`: pending → skipped (`stopped`) |
-| Kill switch (`cfg:wa:pause:global`) | Within 1 s | Not received (gate closed) | Untouched |
+| Pause | Within 2 s (1 s state cache; the sender checks again after waiting for a token) | Acked without sending, and taken off `fed` | Stay pending; resume feeds them again from the first pending |
+| Stop | Within 2 s | Recorded as skipped (counted once, by the sender) | Once nothing is in flight, the sweeper skips the rest with one `updateMany` and adds them to `skipped` |
+| Kill switch (`cfg:wa-pause:{global}`) | Within 1 s | Not received (gate closed) | Untouched |
+
+Pause and stop are made by the API itself: the Redis state is set first (so a failure leaves the campaign paused or stopped, the safe side), then the status. Start and resume check the campaign first (pre-flight), set `sending`, and queue a `start` command; the control consumer then uploads the header media to Meta (fresh), stores the send settings (endpoint, phone number, header component) and publishes the Redis state the sender, feeder and inbound consumer read (`wa:camp`, `wa:active`, `wa:tpl-camps`, `wa:autoreply`, the feed cursor). If the media upload fails, the campaign is paused with the reason.
 
 ### Sweeper (every minute)
 

@@ -181,3 +181,21 @@ export const previewAudienceSchema = z.strictObject({
   variableMapping: z.array(mappingSchema).max(50).default([]),
 });
 export type PreviewAudience = z.infer<typeof previewAudienceSchema>;
+
+/** Starting or scheduling more than 100,000 recipients needs the count typed back. */
+export const startCampaignSchema = z.strictObject({ confirmTotal: z.number().int().min(0).optional() });
+export type StartCampaign = z.infer<typeof startCampaignSchema>;
+
+export const scheduleCampaignSchema = z.strictObject({
+  at: z.iso.datetime({ offset: true }).transform((value) => new Date(value)),
+  confirmTotal: z.number().int().min(0).optional(),
+});
+export type ScheduleCampaign = z.infer<typeof scheduleCampaignSchema>;
+
+export const stopCampaignSchema = z.strictObject({ reason: z.string().trim().min(1).max(200).optional() });
+export type StopCampaign = z.infer<typeof stopCampaignSchema>;
+
+export const testCampaignSchema = z.strictObject({
+  phones: z.array(z.string().min(10).max(20)).min(1).max(5),
+});
+export type TestCampaign = z.infer<typeof testCampaignSchema>;

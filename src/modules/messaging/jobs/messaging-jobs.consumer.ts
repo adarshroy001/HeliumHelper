@@ -3,6 +3,7 @@ import { PinoLogger } from 'nestjs-pino';
 import { ack, Consumer, type MessageHandler, type Outcome } from '../../../infrastructure/queue/index.js';
 import { SuppressionsRepository } from '../data/messaging.repositories.js';
 import { keys } from '../messaging.keys.js';
+import { UnconfirmedSettler } from '../sending/unconfirmed-settler.js';
 import { TemplatesService } from '../templates/templates.service.js';
 import { MESSAGING_JOBS_QUEUE, messagingJob, type MessagingJobData } from './messaging-jobs.js';
 
@@ -12,6 +13,7 @@ export class MessagingJobsConsumer implements MessageHandler<MessagingJobData> {
   constructor(
     private readonly templates: TemplatesService,
     private readonly suppressions: SuppressionsRepository,
+    private readonly settler: UnconfirmedSettler,
     private readonly redis: Redis,
     private readonly logger: PinoLogger,
   ) {
@@ -20,6 +22,7 @@ export class MessagingJobsConsumer implements MessageHandler<MessagingJobData> {
 
   async handle({ job }: MessagingJobData): Promise<Outcome> {
     if (job === 'templates-sync') await this.templates.sync();
+    else if (job === 'unconfirmed-settle') await this.settler.settle();
     else await this.reloadSuppressions();
     return ack();
   }

@@ -26,3 +26,4 @@ export {
   type Schedule,
   toEventBridgeCron,
 } from './schedules/schedule.js';
+export { type BackgroundLoop, WorkerLoop } from './consumer/worker-loop.js';

@@ -10,6 +10,7 @@ import { DEFAULT_TEMPLATES } from '../tools/mock-meta/fixtures.ts';
 import { createTestApp, type TestApp } from './helpers/create-test-app.js';
 import { applyMigrations } from './helpers/migrations.js';
 import { isolatedDatabases } from './helpers/mongo.js';
+import { isolatedRedis } from './helpers/redis.js';
 import { isolatedQueues, testSqsClient } from './helpers/sqs.js';
 import { signToken } from './helpers/tokens.js';
 
@@ -37,6 +38,7 @@ describe('audience build (API, worker, main and messaging databases)', () => {
 
   beforeAll(async () => {
     isolatedDatabases('audience');
+    isolatedRedis(6);
     const sqs = testSqsClient();
     await isolatedQueues(sqs, 'audience-', ['campaign-control']);
     sqs.destroy();

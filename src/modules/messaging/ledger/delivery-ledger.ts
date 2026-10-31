@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { MAIN_ACCOUNT_ID } from '../accounts.service.js';
 import { DeliveriesRepository } from '../data/deliveries.repository.js';
-import { STATUS_RANK } from '../data/delivery.schema.js';
+import { type DeliveryPayload, STATUS_RANK } from '../data/delivery.schema.js';
 import type { TemplatePayload } from '../whatsapp/template.js';
 
 /** A campaign recipient, ready to be written as a pending delivery. */
@@ -65,5 +65,34 @@ export class DeliveryLedger {
 
   campaignRecipients(campaignId: string, outcome: RetargetOutcome, button?: string) {
     return this.deliveries.campaignRecipients(campaignId, outcome, button);
+  }
+
+  /** Writes one-off messages (test sends, direct sends) as pending deliveries; returns their IDs in order. */
+  async addMessages(
+    kind: 'test' | 'direct',
+    sourceId: string | undefined,
+    messages: readonly { to: string; payload: DeliveryPayload }[],
+  ): Promise<string[]> {
+    const now = new Date();
+    const docs = messages.map((m) => ({
+      _id: new Types.ObjectId(),
+      source: { kind, ...(sourceId === undefined ? {} : { id: sourceId }) },
+      accountId: MAIN_ACCOUNT_ID,
+      to: m.to,
+      payload: m.payload,
+      status: 'pending' as const,
+      statusRank: STATUS_RANK.pending,
+      createdAt: now,
+    }));
+    await this.deliveries.insertMany(docs);
+    return docs.map((d) => String(d._id));
+  }
+
+  skipPending(campaignId: string, reason: string): Promise<number> {
+    return this.deliveries.skipPending(campaignId, reason);
+  }
+
+  pendingAfter(campaignId: string, cursor: number, limit: number) {
+    return this.deliveries.pendingAfter(campaignId, cursor, limit);
   }
 }
